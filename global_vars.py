@@ -1,5 +1,5 @@
 
-MAZE_WIDTH = 10             # number of columns
+MAZE_WIDTH = 20             # number of columns
 MAZE_HEIGHT = MAZE_WIDTH    # number of rows
 
 DEBUG_MODE = False
