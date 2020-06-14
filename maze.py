@@ -2,10 +2,11 @@ import global_vars as gv
 import random
 import tkinter as tk
 
+
 def my_randint(a, b):
     return random.randint(a, b)
-    
-    
+
+
 class Line:
     def __init__(self, is_open=False, is_left_wall=False, is_right_wall=False):
         self.is_open = is_open
@@ -36,13 +37,220 @@ class OpenPart:
 class Maze:
     def __init__(self, width=gv.MAZE_WIDTH, height=gv.MAZE_HEIGHT):
         self.width = width
+        if not self.width % 2:
+            self.width += 1
         self.height = height
-        self.start_col = my_randint(0, width-1)
-        self.end_col = my_randint(0, width-1)
-        self.h_lines, self.v_lines, self.keep_open = self.reset_state()
+        self.start_col = my_randint(0, self.width-1)
+        self.end_col = my_randint(0, self.width-1)
+        self.h_lines, self.v_lines, self.cells = self.reset_state()
+        self.trail = []
+        self.trail.append((0, self.start_col))
 
     def set_trail(self):
-        pass
+        trail = []
+        cell = (0, self.start_col)
+        prev_direction = 'down'
+        trail.append(cell)
+        i = my_randint(0, 1)
+        if i:
+            side = 'v'
+        else:
+            side = 'h'
+        while cell != (self.height-1, self.end_col):
+            side, next_cell = self.choose_next_cell(cell, side)
+            # debug
+            if gv.DEBUG_MODE:
+                print(f'cell: {cell}   next cell: {next_cell}   side: {side}')
+            prev_direction = self.set_lines(prev_direction, cell, next_cell)
+            # debug
+            if gv.DEBUG_MODE:
+                #self.show_maze()
+                pass
+            cell = next_cell
+        # set walls for last cell
+        self.set_end_cell(prev_direction)
+
+    def set_end_cell(self, prev_direction):
+        end_cell_up_wall = self.h_lines[self.height-1][self.end_col]
+        end_cell_left_wall = self.v_lines[self.end_col][self.height-1]
+        end_cell_right_wall = self.v_lines[self.end_col+1][self.height-1]
+        if prev_direction == 'down':
+            end_cell_left_wall.is_open = False
+            end_cell_left_wall.is_right_wall = True
+            end_cell_right_wall.is_open = False
+            end_cell_right_wall.is_left_wall = True
+        elif prev_direction == 'left':
+            end_cell_up_wall.is_open = False
+            end_cell_up_wall.is_right_wall = True
+            end_cell_left_wall.is_open = False
+            end_cell_left_wall.is_right_wall = True
+        # right
+        else:
+            end_cell_up_wall.is_open = False
+            end_cell_up_wall.is_left_wall = True
+            end_cell_right_wall.is_open = False
+            end_cell_right_wall.is_left_wall = True
+
+    def set_lines(self, prev_direction, cell1, cell2):
+        row1 = cell1[0]
+        col1 = cell1[1]
+        row2 = cell2[0]
+        col2 = cell2[1]
+
+        cell1_up_wall = self.h_lines[row1][col1]
+        cell1_down_wall = self.h_lines[row1+1][col1]
+        cell1_left_wall = self.v_lines[col1][row1]
+        cell1_right_wall = self.v_lines[col1+1][row1]
+
+        direction = None
+
+        # down
+        if row1 < row2:
+            direction = 'down'
+            if prev_direction == 'left':
+                cell1_up_wall.is_open = False
+                cell1_up_wall.is_right_wall = True
+                cell1_left_wall.is_open = False
+                cell1_left_wall.is_right_wall = True
+            elif prev_direction == 'right':
+                cell1_up_wall.is_open = False
+                cell1_up_wall.is_left_wall = True
+                cell1_right_wall.is_open = False
+                cell1_right_wall.is_left_wall = True
+            elif prev_direction == 'down':
+                cell1_left_wall.is_open = False
+                cell1_left_wall.is_right_wall = True
+                cell1_right_wall.is_open = False
+                cell1_right_wall.is_left_wall = True
+            for row in range(row1+1, row2):
+                self.v_lines[col1][row].is_open = False
+                self.v_lines[col1][row].is_right_wall = True
+                self.v_lines[col1+1][row].is_open = False
+                self.v_lines[col1 + 1][row].is_left_wall = True
+        # up
+        elif row2 < row1:
+            direction = 'up'
+            if prev_direction == 'left':
+                cell1_down_wall.is_open = False
+                cell1_down_wall.is_left_wall = True
+                cell1_left_wall.is_open = False
+                cell1_left_wall.is_left_wall = True
+            elif prev_direction == 'right':
+                cell1_down_wall.is_open = False
+                cell1_down_wall.is_right_wall = True
+                cell1_right_wall.is_open = False
+                cell1_right_wall.is_right_wall = True
+            elif prev_direction == 'up':
+                cell1_left_wall.is_open = False
+                cell1_left_wall.is_left_wall = True
+                cell1_right_wall.is_open = False
+                cell1_right_wall.is_right_wall = True
+            for row in range(row1-1, row2, -1):
+                self.v_lines[col1][row].is_open = False
+                self.v_lines[col1][row].is_left_wall = True
+                self.v_lines[col1+1][row].is_open = False
+                self.v_lines[col1 + 1][row].is_right_wall = True
+        # right
+        elif col1 < col2:
+            direction = 'right'
+            if prev_direction == 'up':
+                cell1_left_wall.is_open = False
+                cell1_left_wall.is_left_wall = True
+                cell1_up_wall.is_open = False
+                cell1_up_wall.is_left_wall = True
+            elif prev_direction == 'down':
+                cell1_down_wall.is_open = False
+                cell1_down_wall.is_right_wall = True
+                cell1_left_wall.is_open = False
+                cell1_left_wall.is_right_wall = True
+            elif prev_direction == 'right':
+                cell1_down_wall.is_open = False
+                cell1_down_wall.is_right_wall = True
+                cell1_up_wall.is_open = False
+                cell1_up_wall.is_left_wall = True
+            for col in range(col1+1, col2):
+                self.h_lines[row1][col].is_open = False
+                self.h_lines[row1][col].is_left_wall = True
+                self.h_lines[row1+1][col].is_open = False
+                self.h_lines[row1+1][col].is_right_wall = True
+        # left
+        else:
+            direction = 'left'
+            if prev_direction == 'up':
+                cell1_up_wall.is_open = False
+                cell1_up_wall.is_right_wall = True
+                cell1_right_wall.is_open = False
+                cell1_right_wall.is_right_wall = True
+            elif prev_direction == 'down':
+                cell1_down_wall.is_open = False
+                cell1_down_wall.is_left_wall = True
+                cell1_right_wall.is_open = False
+                cell1_right_wall.is_left_wall = True
+            elif prev_direction == 'left':
+                cell1_down_wall.is_open = False
+                cell1_down_wall.is_left_wall = True
+                cell1_up_wall.is_open = False
+                cell1_up_wall.is_right_wall = True
+            for col in range(col1-1, col2, -1):
+                self.h_lines[row1][col].is_open = False
+                self.h_lines[row1][col].is_right_wall = True
+                self.h_lines[row1+1][col].is_open = False
+                self.h_lines[row1+1][col].is_left_wall = True
+
+        return direction
+    
+    def choose_next_cell(self, current_cell, side):
+        row = current_cell[0]
+        col = current_cell[1]
+        next_row = row
+        next_col = col
+        return_side = None
+        found_cell = False
+        cell = self.cells[row][col]
+        lim_left_wall = self.get_nearest_wall(row, col, 'left')
+        if lim_left_wall == col:
+            cell.can_go_left = False
+        lim_right_wall = self.get_nearest_wall(row, col, 'right')
+        if lim_right_wall == col+1:
+            cell.can_go_right = False
+        lim_up_wall = self.get_nearest_wall(row, col, 'up')
+        if lim_up_wall == row:
+            cell.can_go_up = False
+        lim_down_wall = self.get_nearest_wall(row, col, 'down')
+        if lim_down_wall == row+1:
+            cell.can_go_down = False
+
+        if side == 'h' and not cell.can_go_left and not cell.can_go_right:
+            side = 'v'
+        elif side == 'v' and not cell.can_go_up and not cell.can_go_down:
+            side = 'h'
+
+        if side == 'h':
+            if cell.can_go_left:
+                next_col = my_randint(lim_left_wall, col-1)
+                return_side = 'v'
+                found_cell = True
+            elif cell.can_go_right:
+                next_col = my_randint(col+1, lim_right_wall-1)
+                return_side = 'v'
+                found_cell = True
+        if not found_cell:
+            if cell.can_go_up:
+                next_row = my_randint(lim_up_wall, row-1)
+                return_side = 'h'
+                found_cell = True
+            elif cell.can_go_down:
+                next_row = my_randint(row+1, lim_down_wall-1)
+                return_side = 'h'
+                found_cell = True
+        # no open side
+        if not found_cell:
+            # debug
+            print(f'cant find next cell,   side: {side}')
+            return None, None
+        
+        return return_side, (next_row, next_col)
+
 
     # old version - row by row
     def set_trail_old(self):
@@ -59,7 +267,7 @@ class Maze:
             self.insert_open_part(row, open_part)
             self.h_lines[row + 1][lower_col].is_open = True
             # debug
-            print(f'row: {row}   left wall: {left_wall}   right wall: {right_wall}   upper col: {upper_col}   lower col: {lower_col}')
+            #print(f'row: {row}   left wall: {left_wall}   right wall: {right_wall}   upper col: {upper_col}   lower col: {lower_col}')
             for part in self.keep_open[row]:
                 # continue
                 # if enough seperation between the columns set tunnel under the part
@@ -105,13 +313,30 @@ class Maze:
         self.keep_open[row].append(op)
 
     def get_nearest_wall(self, row, col, side):
-        wall = col
-        i = -1
-        if side == 'right':
-            wall += 1
-            i = 1
-        while self.v_lines[wall][row].is_open:
-            wall += i
+        if side == 'left' or side == 'right':
+            wall = col
+            i = -1
+            if side == 'right':
+                wall += 1
+                i = 1
+            while self.v_lines[wall][row].is_open:
+                wall += i
+            if row == self.height-1:
+                if side == 'left' and wall < self.end_col:
+                    wall = self.end_col
+                elif side == 'right' and wall > self.end_col+1:
+                    wall = self.end_col+1
+        else:
+            if side == 'up':
+                wall = row
+                while self.h_lines[wall][col].is_open and wall > 0:
+                    wall -= 1
+            # side = down
+            else:
+                wall = row+1
+                while self.h_lines[wall][col].is_open and wall < self.height:
+                    wall += 1
+
         return wall
 
     def get_left_right(self, col_1, col_2):
@@ -257,34 +482,36 @@ class Maze:
         return side
 
     def reset_state(self):
-        # set all horizontal lines to default = close, no part of the trail
+        # set all horizontal lines to default = open, no part of the trail
         h_lines = []
         for row in range(self.height+1):
             current_row = []
             for col in range(self.width):
-                l = Line()
+                l = Line(True)
                 current_row.append(l)
             h_lines.append(current_row)
 
-        # set all vertical lines to default = close no part of the trail
+        # set all vertical lines to default = open no part of the trail
         v_lines = []
         for col in range(self.width+1):
             current_col = []
             for row in range(self.height):
-                l = Line()
+                l = Line(True)
                 current_col.append(l)
             v_lines.append(current_col)
 
-        # open first and last row
-        h_lines[0][self.start_col].is_open = True
-        h_lines[self.height][self.end_col].is_open = True
-
         cells = []
+        is_left_odd = my_randint(0, 1)
+        if self.height % 2:
+            is_row_before_last_left = is_left_odd
+        else:
+            is_row_before_last_left = not is_left_odd
+
         for row in range(self.height):
             current_row = []
             for col in range(self.width):
                 c = Cell()
-                if row%2:
+                if (row+is_left_odd)%2:
                     c.can_go_left = True
                 else:
                     c.can_go_right = True
@@ -296,24 +523,34 @@ class Maze:
             cells.append(current_row)
 
         # set first row
-        for col in range(self.start_col):
-            cells[0][col].can_go_right = False
-            cells[0][col].can_go_left = True
-        for col in range(self.start_col, self.width):
-            cells[0][col].can_go_right = True
-            cells[0][col].can_go_left = False
-        cells[0][self.start_col].can_go_left = True
-        cells[0][self.start_col].can_go_left = True
+        for col in range(self.width):
+            cells[0][col].can_go_up = False
+            h_lines[0][col].is_open = False
+        h_lines[0][self.start_col].is_open = True
+        if is_left_odd:
+            v_lines[self.start_col+1][0].is_open = False
+            for col in range(self.start_col+1, self.width-1):
+                h_lines[1][col].is_open = False
+        else:
+            v_lines[self.start_col][0].is_open = False
+            for col in range(1, self.start_col):
+                h_lines[1][col].is_open = False
 
         # set last row
         for col in range(self.end_col):
             cells[self.height-1][col].can_go_right = True
             cells[self.height-1][col].can_go_left = False
             cells[self.height - 1][col].can_go_down = False
-        for col in range(self.end_col, self.width):
+            h_lines[self.height][col].is_open = False
+            if is_row_before_last_left:
+                cells[self.height - 1][col].can_go_up = False
+        for col in range(self.end_col+1, self.width):
             cells[self.height-1][col].can_go_right = False
             cells[self.height-1][col].can_go_left = True
             cells[self.height - 1][col].can_go_down = False
+            h_lines[self.height][col].is_open = False
+            if not is_row_before_last_left:
+                cells[self.height - 1][col].can_go_up = False
         cells[self.height-1][self.end_col].can_go_left = False
         cells[self.height-1][self.end_col].can_go_right = False
         cells[self.height-1][self.end_col].can_go_up = False
@@ -323,20 +560,28 @@ class Maze:
             cells[row][0].can_go_up = False
             cells[row][0].can_go_down = True
             cells[row][0].can_go_left = False
+            v_lines[0][row].is_open = False
             cells[row][self.width-1].can_go_up = False
             cells[row][self.width-1].can_go_down = True
             cells[row][self.width-1].can_go_right = False
+            v_lines[self.width][row].is_open = False
         cells[self.height-1][0].can_go_down = False
+        cells[self.height-1][0].can_go_up = False
         cells[self.height-1][self.width-1].can_go_down = False
+        cells[self.height-1][self.width-1].can_go_up = False
+        v_lines[0][self.height-1].is_open = False
+        v_lines[self.width][self.height-1].is_open = False
 
         return h_lines, v_lines, cells
 
     def show_maze(self):
         window = tk.Tk()
         window.title('Maze')
+        width = gv.LINE_SIZE * (self.width+2)
+        height = gv.LINE_SIZE * (self.height+2)
         frame_1 = tk.Frame(window)
         frame_1.pack(fill='both', side='top', expand=tk.YES)
-        board = tk.Canvas(frame_1, width=gv.WINDOW_WIDTH, height=gv.WINDOW_HEIGHT)
+        board = tk.Canvas(frame_1, width=width, height=height)
         board.pack(expand=tk.YES, fill=tk.BOTH)
 
         x_00 = gv.X_00
@@ -371,5 +616,32 @@ class Maze:
         elif line.is_right_wall:
             color = gv.RIGHT_TRAIL_LINE_COLOR
         return color
+
+    #debug
+    def print_cells(self):
+        for row in range(self.height):
+            line = ''
+            for col in range(self.width):
+                cell = self.cells[row][col]
+                s = ''
+                if cell.can_go_up:
+                    s += '^'
+                else:
+                    s += ' '
+                if cell.can_go_down:
+                    s += '!'
+                else:
+                    s += ' '
+                if cell.can_go_left:
+                    s += '<'
+                else:
+                    s += ' '
+                if cell.can_go_right:
+                    s += '>    '
+                else:
+                    s += '     '
+                line += s
+            print(line)
+
 
 

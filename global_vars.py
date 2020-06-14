@@ -1,6 +1,8 @@
 
-MAZE_WIDTH = 20              # number of columns
+MAZE_WIDTH = 10             # number of columns
 MAZE_HEIGHT = MAZE_WIDTH    # number of rows
+
+DEBUG_MODE = False
 
 DIVIDERS_RESOLUTION = 2
 MAX_STRAIT_LINE = 6
@@ -11,9 +13,6 @@ NO_TRAIL_LINE_COLOR = 'black'
 LEFT_TRAIL_LINE_COLOR = 'red'
 RIGHT_TRAIL_LINE_COLOR = 'blue'
 BOTH_SIDES_TRAIL_LINE_COLOR = 'yellow'
-
-WINDOW_WIDTH = LINE_SIZE * (MAZE_WIDTH+2)
-WINDOW_HEIGHT = LINE_SIZE * (MAZE_HEIGHT+2)
 
 X_00 = Y_00 = LINE_SIZE
 
