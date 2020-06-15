@@ -1,8 +1,9 @@
 
-MAZE_WIDTH = 20             # number of columns
+MAZE_WIDTH = 30             # number of columns
 MAZE_HEIGHT = MAZE_WIDTH    # number of rows
 
 DEBUG_MODE = False
+MARK_TRAIL = True
 
 DIVIDERS_RESOLUTION = 2
 MAX_STRAIT_LINE = 6
