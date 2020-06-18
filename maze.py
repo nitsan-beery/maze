@@ -5,8 +5,17 @@ import tkinter as tk
 
 def my_randint(a, b):
     return random.randint(a, b)
+#    f = random.random()
+#    return a+int(f*(b-a+1))
 
 
+class PolRow:
+    def __init__(self, row=0, left_col=0, right_col=0):
+        self.row = row
+        self.left_col = left_col
+        self.right_col = right_col
+    
+    
 class TrailWall:
     def __init__(self, is_vertical=False, x=0, y=0):
         self.is_vertical = is_vertical
@@ -29,24 +38,20 @@ class Line:
         self.is_right_trail_wall = False
 
 
+class MazeInfo:
+    def __init__(self):
+        self.num_of_decoy_polygons = 0
+        self.trail_length = 0
+
+
 class Cell:
-    def __init__(self, can_go_up=False, can_go_down=False, can_go_left=False, can_go_right=False, is_free=True):
+    def __init__(self, can_go_up=False, can_go_down=False, can_go_left=False, can_go_right=False, is_free=True, show_cell=False):
         self.can_go_up = can_go_up
         self.can_go_down = can_go_down
         self.can_go_left = can_go_left
         self.can_go_right = can_go_right
         self.is_free = is_free
-
-
-# old version row by row
-# keep open from left wall to right wall
-class OpenPart:
-    def __init__(self, left_wall=0, right_wall=0, upper_col=None, col_2=None, is_col_2_lower=True):
-        self.left_wall = left_wall
-        self.right_wall = right_wall
-        self.upper_col = upper_col
-        self.col_2 = col_2
-        self.is_col_2_lower = is_col_2_lower
+        self.show_cell = show_cell
 
 
 class Maze:
@@ -62,33 +67,217 @@ class Maze:
         self.right_trail_wall = []
         self.trail = []
         self.decoy_polygons = []
+        self.info = MazeInfo()
 
-    def set_empty_polygons(self):
+    def set_maze(self):
+        self.set_trail()
+        self.set_decoy_polygons()
+        #debug
+        #self.show_maze()
+        for pol in self.decoy_polygons:
+            tw = self.get_polygon_trail_walls(pol)
+            i = my_randint(0, len(tw)-1)
+            self.open_trail_wall(tw[i])
+        # debug
+        print(f'{len(self.decoy_polygons)} decoy polygons')
+        for pol in self.decoy_polygons:
+            self.fill_decoy_polygon_with_trails(pol)
+            # debug
+            #print('after fill pol')
+            #self.show_maze(True)
+        self.info.num_of_decoy_polygons = len(self.decoy_polygons)
+        self.info.trail_length = len(self.trail)
+
+    def clean_polygon_cells(self, pol):
+        for cell in pol:
+            row = cell[0]
+            col = cell[1]
+            self.cells[row][col].is_free = True
+            self.cells[row][col].can_go_up = True
+            self.cells[row][col].can_go_down = True
+            self.cells[row][col].can_go_left = True
+            self.cells[row][col].can_go_right = True
+
+    def fill_decoy_polygon_with_trails(self, pol):
+        row = 1
+        col = 1
+        self.set_trail_in_polygon(pol)
+        row, col = self.get_next_empty_cell_in_polygon(pol)
+        while row is not None:
+            new_pol = self.get_empty_polygon(row, col)
+            tw = self.get_polygon_trail_walls(new_pol)
+            i = my_randint(0, len(tw) - 1)
+            self.open_trail_wall(tw[i])
+            self.set_trail_in_polygon(new_pol)
+            row, col = self.get_next_empty_cell_in_polygon(pol)
+
+    def set_trail_in_polygon(self, pol):
+        self.clean_polygon_cells(pol)
+        entry_side, cell = self.get_entrance_cell_to_decoy_polygon(pol)
+        row = cell[0]
+        col = cell[1]
+        if entry_side == 'up':
+            self.cells[row][col].can_go_down = False
+        elif entry_side == 'down':
+            self.cells[row][col].can_go_up = False
+        elif entry_side == 'left':
+            self.cells[row][col].can_go_right = False
+        elif entry_side == 'right':
+            self.cells[row][col].can_go_left = False
+        trail = self.set_trail(is_main_trail=False, first_cell=cell, prev_dir=entry_side)
+        for cell in trail:
+            row = cell[0]
+            col = cell[1]
+            self.cells[row][col].is_free = False
+
+    def split_polygon(self, pol):
+        rows = self.get_pol_rows(pol)
+        if len(rows) < gv.MIN_ROWS_TO_SPLIT_POLYGON:
+            return None, None
+        split_cell = len(pol)/2-(len(pol)/len(rows))
+        mid_row = 0
+        counter = 0
+        while counter < split_cell and mid_row < len(rows)-1:
+            counter += rows[mid_row].right_col-rows[mid_row].left_col+1
+            mid_row += 1
+        #debug
+        #print(f'pol size: {len(pol)}   rows: {len(rows)}    counter: {counter}   mid row: {mid_row}')
+        self.set_ceiling(rows[mid_row].row, rows[mid_row].left_col, rows[mid_row].right_col)
+        pol1 = []
+        pol2 = []
+        pol2_start_cell = 0
+        for n in range(0, mid_row):
+            pol2_start_cell += (rows[n].right_col - rows[n].left_col + 1)
+        for i in range(0, pol2_start_cell):
+            pol1.append(pol[i])
+        for i in range(pol2_start_cell, len(pol)):
+            pol2.append(pol[i])
+        return pol1, pol2
+
+    def set_decoy_polygons(self):
         row = 0
         col = 0
         while True:
-            row, col = self.get_next_empty_cell(row, col)
+            row, col = self.get_next_empty_cell_in_maze(row, col)
             if row is None:
                 break
-            polygon_cells, pol_trail_wall = self.get_empty_polygon(row, col)
-            i = my_randint(0, len(pol_trail_wall)-1)
-            line = pol_trail_wall[i]
-            if line.is_vertical:
-                self.v_lines[line.x][line.y].clear_walls()
-            else:
-                self.h_lines[line.x][line.y].clear_walls()
-            self.decoy_polygons.append((polygon_cells, line))
+            polygon_cells = self.get_empty_polygon(row, col)
+            self.decoy_polygons.append(polygon_cells)
+        maze_size = self.height * self.width
+        i = len(self.decoy_polygons)-1
+        while i >= 0:
+            pol = self.decoy_polygons[i]
+            if len(pol) > maze_size * gv.MAX_POLYGON_PERCENTAGE_AREA:
+                pol1, pol2 = self.split_polygon(pol)
+                if pol1 is not None:
+                    self.decoy_polygons[i] = pol1
+                    self.decoy_polygons.insert(i+1, pol2)
+            i -= 1
 
+    def get_entrance_cell_to_decoy_polygon(self, pol):
+        rows = self.get_pol_rows(pol)
+        # first row
+        row = rows[0].row
+        for col in range(rows[0].left_col, rows[0].right_col+1):
+            if self.h_lines[row][col].is_open():
+                return 'down', (row, col)
+        prev_left = rows[0].left_col
+        prev_right = rows[0].right_col
+        # left and right columns
+        for i in range(len(rows)):
+            row = rows[i].row
+            # left wall
+            col_l = rows[i].left_col
+            col_r = rows[i].right_col
+            if self.v_lines[col_l][row].is_open():
+                return 'right', (row, col_l)
+            if col_l < prev_left:
+                for c in range(col_l, prev_left):
+                    if self.h_lines[row][c].is_open():
+                        return 'down', (row, c)
+            if col_l > prev_left:
+                for c in range(prev_left, col_l):
+                    if self.h_lines[row][c].is_open():
+                        return 'up', (row-1, c)
+            prev_left = col_l
+            if self.v_lines[col_r+1][row].is_open():
+                return 'left', (row, col_r)
+            if col_r < prev_right:
+                for c in range(col_r+1, prev_right+1):
+                    if self.h_lines[row][c].is_open():
+                        return 'up', (row-1, c)
+            if col_r > prev_right:
+                for c in range(prev_right+1, col_r+1):
+                    if self.h_lines[row][c].is_open():
+                        return 'down', (row, c)
+            prev_right = col_r
+        # last row
+        row = rows[-1].row
+        for col in range(rows[-1].left_col, rows[-1].right_col+1):
+            if self.h_lines[row+1][col].is_open():
+                return 'up', (row, col)
+        return None, None
+
+    def open_trail_wall(self, tw):
+        if tw.is_vertical:
+            self.v_lines[tw.x][tw.y].clear_walls()
+        else:
+            self.h_lines[tw.x][tw.y].clear_walls()
+
+    def get_polygon_trail_walls(self, pol):
+        pol_tw = []
+        for i in range(0, len(pol)):
+            row = pol[i][0]
+            col = pol[i][1]
+            # upper wall
+            tw = TrailWall(False, row, col)
+            if self.is_line_part_of_trail_wall(tw):
+                pol_tw.append(tw)
+            # left wall
+            tw = TrailWall(True, col, row)
+            if self.is_line_part_of_trail_wall(tw):
+                pol_tw.append(tw)
+            # right wall
+            tw = TrailWall(True, col+1, row)
+            if self.is_line_part_of_trail_wall(tw):
+                pol_tw.append(tw)
+            # lower wall
+            tw = TrailWall(False, row + 1, col)
+            if self.is_line_part_of_trail_wall(tw):
+                pol_tw.append(tw)
+            i += 1
+        return pol_tw
+    
+    def get_pol_rows(self, pol):
+        rows = []
+        i = 0
+        while i < len(pol):
+            pr = PolRow()
+            pr.row = pol[i][0]
+            pr.left_col = pol[i][1]
+            i = self.get_pol_index_of_next_row(pol, i)
+            pr.right_col = pol[i-1][1]
+            rows.append(pr)
+        return rows
+    
+    def get_pol_index_of_next_row(self, pol, i):
+        current_row = pol[i][0]
+        while i < len(pol):
+            if pol[i][0] == current_row:
+                i += 1
+            else:
+                return i
+        return i
+    
     def get_empty_polygon(self, start_row, start_col):
         pol_cells = []
-        pol_tw = []
         row = start_row
         min_col = start_col
         max_col = self.get_nearest_wall(row, start_col, 'right') - 1
         while row < self.height:
             end_col = self.get_nearest_wall(row, start_col, 'right') - 1
             for col in range(start_col, end_col + 1):
-                pol_cells, pol_tw = self.add_cells_and_tw_to_pol(pol_cells, pol_tw, row, col)
+                pol_cells = self.add_cells_to_pol(pol_cells, row, col)
             if end_col > max_col:
                 self.set_ceiling(row, max_col+1, end_col)
                 max_col = end_col
@@ -106,7 +295,7 @@ class Maze:
                 min_col = start_col
             row += 1
 
-        return pol_cells, pol_tw
+        return pol_cells
 
     def set_ceiling(self, row, left_col, right_col):
         for col in range(left_col, right_col+1):
@@ -124,26 +313,10 @@ class Maze:
                 break
         return self.get_nearest_wall(row+1, col, 'left')
 
-    def add_cells_and_tw_to_pol(self, pol_cells, pol_tw, row, col):
+    def add_cells_to_pol(self, pol_cells, row, col):
         pol_cells.append((row, col))
         self.cells[row][col].is_free = False
-        # upper wall
-        tw = TrailWall(False, row, col)
-        if self.is_line_part_of_trail_wall(tw):
-            pol_tw.append(tw)
-        # lower wall
-        tw = TrailWall(False, row+1, col)
-        if self.is_line_part_of_trail_wall(tw):
-            pol_tw.append(tw)
-        # left wall
-        tw = TrailWall(True, col, row)
-        if self.is_line_part_of_trail_wall(tw):
-            pol_tw.append(tw)
-        # right wall
-        tw = TrailWall(True, col+1, row)
-        if self.is_line_part_of_trail_wall(tw):
-            pol_tw.append(tw)
-        return pol_cells, pol_tw
+        return pol_cells
 
     def is_line_part_of_trail_wall(self, tw):
         if tw.is_vertical:
@@ -154,8 +327,16 @@ class Maze:
                 return True
         return False
 
+    def get_next_empty_cell_in_polygon(self, pol):
+        for cell in pol:
+            row = cell[0]
+            col = cell[1]
+            if self.cells[row][col].is_free:
+                return row, col
+        return None, None
+
     # return first empty row, col
-    def get_next_empty_cell(self, start_row, start_col):
+    def get_next_empty_cell_in_maze(self, start_row, start_col):
         row = start_row
         col = start_col
         while row < self.height:
@@ -167,35 +348,47 @@ class Maze:
             row += 1
         return None, None
 
-    def set_trail(self):
-        cell = (0, self.start_col)
-        prev_direction = 'down'
+    def set_trail(self, is_main_trail=True, first_cell=(0, 0), prev_dir='down'):
+        trail = []
+        last_cell = (self.height - 1, self.end_col)
+        if is_main_trail:
+            cell = (0, self.start_col)
+        else:
+            cell = first_cell
+        prev_direction = prev_dir
         i = my_randint(0, 1)
         if i:
             side = 'v'
         else:
             side = 'h'
-        while cell != (self.height-1, self.end_col):
-            self.trail.append(cell)
+        while cell != last_cell:
+            trail.append(cell)
             self.cells[cell[0]][cell[1]].is_free = False
-            side, next_cell = self.choose_next_cell(cell, side)
+            side, next_cell = self.choose_next_cell(cell, side, is_main_trail)
+            if next_cell is None:
+                break
             # debug
             if gv.DEBUG_MODE:
                 print(f'cell: {cell}   next cell: {next_cell}   side: {side}')
-            prev_direction = self.add_trail_between_cells(prev_direction, cell, next_cell)
-            # debug
-            if gv.DEBUG_MODE:
-                self.print_trail_walls()
-                self.show_maze()
-                pass
+            prev_direction, trail = self.add_trail_between_cells(prev_direction, cell, next_cell, trail)
             cell = next_cell
-        self.trail.append((self.height-1, self.end_col))
-        self.cells[self.height-1][self.end_col].is_free = False
-        # set walls for last cell
-        self.set_end_cell(prev_direction)
-        # define edge walls as not part of the trail walls
-        self.clean_left_and_right_walls()
-        self.clean_row_1_temp_line()
+            #debug
+#        if not is_main_trail:
+#            for cell in trail:
+#                self.cells[cell[0]][cell[1]].show_cell = True
+            #self.show_maze(True)
+        if is_main_trail:
+            self.trail = trail
+            self.trail.append((self.height-1, self.end_col))
+            self.cells[self.height-1][self.end_col].is_free = False
+            # set walls for last cell
+            self.set_end_cell(prev_direction)
+            # define edge walls as not part of the trail walls
+            self.clean_left_and_right_walls()
+            self.clean_row_1_temp_line()
+            for cell in self.trail:
+                self.cells[cell[0]][cell[1]].show_cell = True
+        return trail
 
     def clean_row_1_temp_line(self):
         for col in range(0, self.width):
@@ -218,7 +411,7 @@ class Maze:
             end_cell_right_wall.is_left_trail_wall = True
         self.insert_trail_lines(self.height-1, self.end_col, prev_direction, 'down')
 
-    def add_trail_between_cells(self, prev_direction, cell1, cell2):
+    def add_trail_between_cells(self, prev_direction, cell1, cell2, trail):
         row1 = cell1[0]
         col1 = cell1[1]
         row2 = cell2[0]
@@ -248,7 +441,7 @@ class Maze:
                 self.v_lines[col1][row].is_right_trail_wall = True
                 self.v_lines[col1 + 1][row].is_left_trail_wall = True
                 self.insert_trail_lines(row, col1, direction, direction)
-                self.trail.append((row, col1))
+                trail.append((row, col1))
                 self.cells[row][col1].is_free = False
         # up
         elif row2 < row1:
@@ -267,7 +460,7 @@ class Maze:
                 self.v_lines[col1][row].is_left_trail_wall = True
                 self.v_lines[col1 + 1][row].is_right_trail_wall = True
                 self.insert_trail_lines(row, col1, direction, direction)
-                self.trail.append((row, col1))
+                trail.append((row, col1))
                 self.cells[row][col1].is_free = False
         # right
         elif col1 < col2:
@@ -286,7 +479,7 @@ class Maze:
                 self.h_lines[row1][col].is_left_trail_wall = True
                 self.h_lines[row1+1][col].is_right_trail_wall = True
                 self.insert_trail_lines(row1, col, direction, direction)
-                self.trail.append((row1, col))
+                trail.append((row1, col))
                 self.cells[row1][col].is_free = False
         # left
         else:
@@ -305,10 +498,10 @@ class Maze:
                 self.h_lines[row1][col].is_right_trail_wall = True
                 self.h_lines[row1+1][col].is_left_trail_wall = True
                 self.insert_trail_lines(row1, col, direction, direction)
-                self.trail.append((row1, col))
+                trail.append((row1, col))
                 self.cells[row1][col].is_free = False
 
-        return direction
+        return direction, trail
     
     def insert_trail_lines(self, row, col, prev_direction, direction):
         if prev_direction == 'down':
@@ -380,7 +573,7 @@ class Maze:
                 tw = TrailWall(is_vertical=False, x=row, y=col)
                 self.right_trail_wall.append(tw)
     
-    def choose_next_cell(self, current_cell, side):
+    def choose_next_cell(self, current_cell, side, is_main_trail=True):
         row = current_cell[0]
         col = current_cell[1]
         next_row = row
@@ -389,51 +582,90 @@ class Maze:
         found_cell = False
         cell = self.cells[row][col]
         lim_left_wall = self.get_nearest_wall(row, col, 'left')
-        if row == self.height - 1:
+        if row == self.height - 1 and is_main_trail:
             if lim_left_wall < self.end_col:
                 lim_left_wall = self.end_col
         if lim_left_wall == col:
             cell.can_go_left = False
+        elif col > 0:
+            if not self.cells[row][col-1].is_free:
+                cell.can_go_left = False
         lim_right_wall = self.get_nearest_wall(row, col, 'right')
-        if row == self.height - 1:
+        if row == self.height - 1 and is_main_trail:
             if lim_right_wall > self.end_col + 1:
                 lim_right_wall = self.end_col + 1
         if lim_right_wall == col+1:
             cell.can_go_right = False
+        elif col < self.width-1:
+            if not self.cells[row][col+1].is_free:
+                cell.can_go_right = False
         lim_up_wall = self.get_nearest_wall(row, col, 'up')
         if lim_up_wall == row:
             cell.can_go_up = False
+        elif row > 0:
+            if not self.cells[row-1][col].is_free:
+                cell.can_go_up = False
         lim_down_wall = self.get_nearest_wall(row, col, 'down')
         if lim_down_wall == row+1:
             cell.can_go_down = False
+        elif row < self.height-1:
+            if not self.cells[row+1][col].is_free:
+                cell.can_go_down = False
 
         if side == 'h' and not cell.can_go_left and not cell.can_go_right:
             side = 'v'
         elif side == 'v' and not cell.can_go_up and not cell.can_go_down:
             side = 'h'
 
+        # in decoy polygon choose randomly
+        if not is_main_trail:
+            if cell.can_go_right and cell.can_go_left:
+                i = my_randint(0, 1)
+                if i:
+                    cell.can_go_left = False
+                else:
+                    cell.can_go_right = False
+            if cell.can_go_up and cell.can_go_down:
+                i = my_randint(0, 1)
+                if i:
+                    cell.can_go_down = False
+                else:
+                    cell.can_go_up = False
+
         if side == 'h':
             if cell.can_go_left:
+                if col - lim_left_wall > gv.MAX_STRAIT_LINE:
+                    lim_left_wall = col - gv.MAX_STRAIT_LINE
+                #debug
+                #print(f'row: {row}   lim_left_wall: {lim_left_wall}   col: {col}')
                 next_col = my_randint(lim_left_wall, col-1)
                 return_side = 'v'
                 found_cell = True
             elif cell.can_go_right:
+                if (lim_right_wall-1) - col > gv.MAX_STRAIT_LINE:
+                    lim_right_wall = col + gv.MAX_STRAIT_LINE + 1
+                #debug
+                #print(f'row: {row}   col: {col}   lim_right_wall: {lim_right_wall}')
                 next_col = my_randint(col+1, lim_right_wall-1)
                 return_side = 'v'
                 found_cell = True
         if not found_cell:
             if cell.can_go_up:
+                if (row-1) - lim_up_wall > gv.MAX_STRAIT_LINE:
+                    lim_up_wall = (row - 1) - gv.MAX_STRAIT_LINE
                 next_row = my_randint(lim_up_wall, row-1)
                 return_side = 'h'
                 found_cell = True
             elif cell.can_go_down:
+                if (lim_down_wall-1) - (row+1) > gv.MAX_STRAIT_LINE:
+                    lim_down_wall = row + gv.MAX_STRAIT_LINE
                 next_row = my_randint(row+1, lim_down_wall-1)
                 return_side = 'h'
                 found_cell = True
         # no open side
         if not found_cell:
             # debug
-            print(f'cant find next cell,   side: {side}')
+            #print(f'cant find next cell,   side: {side}')
             return None, None
         
         return return_side, (next_row, next_col)
@@ -477,66 +709,6 @@ class Maze:
             self.v_lines[self.width][row].is_left_trail_wall = False
             self.v_lines[self.width][row].is_right_trail_wall = False
 
-    # old version - row by row
-    def set_trail_old(self):
-        upper_col = self.start_col
-        for row in range(0, self.height-1):
-            lower_col = self.get_next_col(row, upper_col)
-            left_col, right_col = self.get_left_right(upper_col, lower_col)
-            left_wall_lim = self.get_nearest_wall(row, left_col, 'left')
-            right_wall_lim = self.get_nearest_wall(row, right_col, 'right')
-            left_wall, right_wall = self.get_left_and_right_walls(left_wall_lim, right_wall_lim, left_col, right_col)
-            self.v_lines[left_wall][row].is_wall = True
-            self.v_lines[right_wall][row].is_wall = True
-            open_part = OpenPart(left_wall, right_wall, upper_col, lower_col, True)
-            self.insert_open_part(row, open_part)
-            self.h_lines[row + 1][lower_col].is_wall = False
-            # debug
-            #print(f'row: {row}   left wall: {left_wall}   right wall: {right_wall}   upper col: {upper_col}   lower col: {lower_col}')
-            for part in self.keep_open[row]:
-                # continue
-                # if enough seperation between the columns set tunnel under the part
-                if (part.upper_col - part.col_2) * (part.upper_col - part.col_2) > 4:
-                    do_tunnel = my_randint(0, 1)
-                    if part.is_col_2_lower:
-                        # if do_tunnel:
-                        left_wall, right_wall = self.set_tunnel(row, part)
-            divider_list = self.get_dividers_list(row)
-#            self.set_dividers(row, divider_list)
-            self.make_holes_under_blocked_part(row, lower_col, divider_list)
-            upper_col = lower_col
-#            debug
-#            self.show_maze()
-        # handle last row
-        lower_col = self.get_next_col(self.height-1, upper_col)
-        self.h_lines[self.height][lower_col].is_wall = False
-
-    def get_left_and_right_walls(self, left_lim, right_lim, left_col, right_col):
-        if left_col-left_lim > gv.MAX_ADD_TO_PART_SIZE:
-            left_lim = left_col-gv.MAX_ADD_TO_PART_SIZE
-        if right_lim-(right_col+1) > gv.MAX_ADD_TO_PART_SIZE:
-            right_lim = right_col+1+gv.MAX_ADD_TO_PART_SIZE
-        left_wall = my_randint(left_lim, left_col)
-        right_wall = my_randint(right_col + 1, right_lim)
-        return left_wall, right_wall
-
-    # old version - row by row
-    def get_next_col(self, row, upper_col):
-        if row > self.height-1:
-            return
-        l_lim_wall = self.get_nearest_wall(row, upper_col, 'left')
-        r_lim_wall = self.get_nearest_wall(row, upper_col, 'right')
-        side = self.choose_side(upper_col, l_lim_wall, r_lim_wall)
-        if side == 'right':
-            lower_col = my_randint(upper_col, r_lim_wall-1)
-        else:
-            lower_col = my_randint(l_lim_wall, upper_col)
-        return lower_col
-
-    # old version - row by row
-    def insert_open_part(self, row, op):
-        self.keep_open[row].append(op)
-
     def get_nearest_wall(self, row, col, side):
         if side == 'left' or side == 'right':
             wall = col
@@ -559,13 +731,6 @@ class Maze:
 
         return wall
 
-    def get_left_right(self, col_1, col_2):
-        left_col = col_1
-        right_col = col_2
-        if left_col > right_col:
-            left_col, right_col = right_col, left_col
-        return left_col, right_col
-
     def is_floor_blocked(self, row, left_wall, right_wall):
         do_blocked = True
         for i in range(left_wall, right_wall):
@@ -573,133 +738,6 @@ class Maze:
                 do_blocked = False
                 break
         return do_blocked
-
-    # old version - row by row
-    def get_dividers_list(self, row):
-        divider_list = []
-        left_lim = 0
-        for part in self.keep_open[row]:
-            if part.left_wall > left_lim:
-                divider_list.append((left_lim, part.left_wall))
-            left_lim = part.right_wall
-        if left_lim < self.width:
-            divider_list.append((left_lim, self.width))
-        return divider_list
-
-    # old version - row by row
-    def set_dividers(self, row, divider_list):
-        for part in divider_list:
-            num_dividers = 0
-            l_lim = part[0]
-            r_lim = part[1]
-            i = l_lim + my_randint(0, gv.DIVIDERS_RESOLUTION)
-            max_dividers = int((r_lim-l_lim)/gv.DIVIDERS_RESOLUTION)
-            while i < r_lim and num_dividers < max_dividers:
-                do_block = my_randint(0, 1)
-                if do_block:
-                    self.v_lines[i + 1][row].is_wall = True
-                if not self.v_lines[i + 1][row].is_open():
-                    num_dividers += 1
-                i += gv.DIVIDERS_RESOLUTION
-                #debug
-#                else:
-#                    print(f'last part - l_lim: {l_lim}   r_lim: {r_lim}   last_divider: {last_divider}')
-
-    # old version - row by row
-    # make hole under row, where trail_col is the row lower col
-    def make_holes_under_blocked_part(self, row, trail_col, divider_list):
-        #debug
-        s = f'make holes under row: {row}   - '
-        for part in divider_list:
-            l_lim = part[0]
-            r_lim = part[1]
-            #debug
-            s += f'({l_lim}-{r_lim}) '
-            next_wall = l_lim
-            while next_wall < r_lim:
-                next_wall = self.get_nearest_wall(row, l_lim, 'right')
-                if self.is_floor_blocked(row, l_lim, next_wall):
-                    j = my_randint(l_lim, next_wall-1)
-                    self.h_lines[row + 1][j].is_wall = False
-                    if row < self.height-2:
-                        if j < trail_col:
-                            self.set_wall(row+1, j+1, trail_col)
-                        else:
-                            self.set_wall(row+1, trail_col+1, j)
-                    #debug
-                    s += f'hole: {j}   '
-                l_lim = next_wall
-        #debug
-        print(s)
-
-    def set_wall(self, row, left_lim, right_lim):
-        j = my_randint(left_lim, right_lim)
-        self.v_lines[j][row].is_wall = True
-
-    # old version - row by row
-    # set a tunnel under current row. divider = wall on upper row, wall = wall on lower row
-    def set_tunnel(self, row, part):
-        is_upper_col_on_the_right = True
-        if part.is_col_2_lower:
-            if part.upper_col > part.col_2:
-                left_hole_lim = part.col_2 + 1
-                right_hole_lim = part.right_wall - 1
-                left_divider_wall_lim = part.col_2 + 2
-                right_divider_wall_lim = part.upper_col
-            else:
-                is_upper_col_on_the_right = False
-                left_hole_lim = part.left_wall
-                right_hole_lim = part.col_2 - 1
-                left_divider_wall_lim = part.upper_col+1
-                right_divider_wall_lim = part.col_2 - 1
-        # tunnel with 2 holes on the upper surface
-        else:
-            left_col, right_col = self.get_left_right(part.upper_col, part.col_2)
-            left_hole_lim = part.left_wall
-            right_hole_lim = part.right_wall-1
-            left_divider_wall_lim = left_col+1
-            right_divider_wall_lim = right_col
-
-        # left hole max = divider-1,  right hole min = divider
-        divider = my_randint(left_divider_wall_lim, right_divider_wall_lim)
-        self.v_lines[divider][row].is_wall = True
-        left_hole = my_randint(left_hole_lim, divider-1)
-        right_hole = my_randint(divider, right_hole_lim)
-        self.h_lines[row+1][left_hole].is_wall = False
-        self.h_lines[row+1][right_hole].is_wall = False
-        
-        left_wall_lim = part.left_wall
-        right_wall_lim = part.right_wall
-
-        if part.is_col_2_lower:
-            if is_upper_col_on_the_right:
-                left_wall_lim = part.col_2+1
-            else:
-                right_wall_lim = part.col_2
-
-        left_wall, right_wall = self.get_left_and_right_walls(left_wall_lim, right_wall_lim, left_hole, right_hole)
-        self.v_lines[left_wall][row+1].is_wall = True
-        self.v_lines[right_wall][row+1].is_wall = True
-        open_part = OpenPart(left_wall, right_wall, left_hole, right_hole, False)
-        self.insert_open_part(row+1, open_part)
-
-        # debug
-        print(f'tunnel under row {row}   left wall: {left_wall}   right wall: {right_wall}   left hole: {left_hole}   right hole: {right_hole}   upper divider: {divider}')
-        return left_wall, right_wall
-
-    # old version - row by row
-    def choose_side(self, col, l_lim_wall, r_lim_wall):
-        if col == l_lim_wall:
-            side = 'right'
-        elif col == r_lim_wall-1:
-            side = 'left'
-        else:
-            i = my_randint(0, 1)
-            if i:
-                side = 'right'
-            else:
-                side = 'left'
-        return side
 
     def reset_state(self):
         # set all horizontal lines to default = open, no part of the trail
@@ -795,7 +833,7 @@ class Maze:
 
         return h_lines, v_lines, cells
 
-    def show_maze(self):
+    def show_maze(self, show_cells=False, mark_trail=False):
         window = tk.Tk()
         window.title('Maze')
         width = gv.LINE_SIZE * (self.width+2)
@@ -814,7 +852,7 @@ class Maze:
                 start_x = x_00 + gv.LINE_SIZE*col
                 end_x = start_x + gv.LINE_SIZE
                 if not line[col].is_open():
-                    board.create_line(start_x, y, end_x, y, fill=self.get_line_color(line[col]))
+                    board.create_line(start_x, y, end_x, y, fill=self.get_line_color(line[col], mark_trail))
             row += 1
         col = 0
         for line in self.v_lines:
@@ -823,14 +861,44 @@ class Maze:
                 start_y = y_00 + gv.LINE_SIZE * row
                 end_y = start_y + gv.LINE_SIZE
                 if not line[row].is_open():
-                    board.create_line(x, start_y, x, end_y, fill=self.get_line_color(line[row]))
+                    board.create_line(x, start_y, x, end_y, fill=self.get_line_color(line[row], mark_trail))
             col += 1
+
+        # entrance and exit
+        x = x_00 + gv.LINE_SIZE * self.start_col
+        start_y = y_00
+        end_y = start_y - gv.LINE_SIZE/2
+        board.create_line(x, start_y, x, end_y, fill=gv.NO_TRAIL_LINE_COLOR)
+        x += gv.LINE_SIZE
+        board.create_line(x, start_y, x, end_y, fill=gv.NO_TRAIL_LINE_COLOR)
+        x = x_00 + gv.LINE_SIZE * self.end_col
+        start_y = y_00 + self.height * gv.LINE_SIZE
+        end_y = start_y + gv.LINE_SIZE/2
+        board.create_line(x, start_y, x, end_y, fill=gv.NO_TRAIL_LINE_COLOR)
+        x += gv.LINE_SIZE
+        board.create_line(x, start_y, x, end_y, fill=gv.NO_TRAIL_LINE_COLOR)
+
+        if show_cells:
+            x_00 += gv.LINE_SIZE/4
+            y_00 += gv.LINE_SIZE/4
+            for row in range(self.height):
+                for col in range(self.width):
+                    if self.cells[row][col].show_cell:
+                        hx_left = x_00 + gv.LINE_SIZE*col
+                        hx_right = hx_left + gv.LINE_SIZE/2
+                        hy = y_00 + gv.LINE_SIZE*row + gv.LINE_SIZE/4
+                        vx = hx_left + gv.LINE_SIZE/4
+                        vy_up = y_00 + gv.LINE_SIZE*row
+                        vy_down = vy_up + gv.LINE_SIZE/2
+                        board.create_line(hx_left, hy, hx_right, hy, fill=gv.SHOW_CELL_COLOR)
+                        board.create_line(vx, vy_up, vx, vy_down, fill=gv.SHOW_CELL_COLOR)
+
         window.update()
         window.mainloop()
 
-    def get_line_color(self, line):
+    def get_line_color(self, line, mark_trail=False):
         color = gv.NO_TRAIL_LINE_COLOR
-        if not gv.MARK_TRAIL:
+        if not mark_trail:
             return color
         if line.is_left_trail_wall and line.is_right_trail_wall:
             color = gv.BOTH_SIDES_TRAIL_LINE_COLOR
