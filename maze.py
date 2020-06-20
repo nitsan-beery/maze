@@ -66,25 +66,23 @@ class Maze:
         self.left_trail_wall = []
         self.right_trail_wall = []
         self.trail = []
+        self.marked_cells = []
         self.decoy_polygons = []
         self.info = MazeInfo()
 
     def set_maze(self):
         self.set_trail()
-        self.set_decoy_polygons()
         #debug
-        #self.show_maze()
+        #self.show_maze(mark_trail=True)
+        self.set_decoy_polygons()
         for pol in self.decoy_polygons:
             tw = self.get_polygon_trail_walls(pol)
             i = my_randint(0, len(tw)-1)
             self.open_trail_wall(tw[i])
         # debug
-        print(f'{len(self.decoy_polygons)} decoy polygons')
+        #print(f'{len(self.decoy_polygons)} decoy polygons')
         for pol in self.decoy_polygons:
             self.fill_decoy_polygon_with_trails(pol)
-            # debug
-            #print('after fill pol')
-            #self.show_maze(True)
         self.info.num_of_decoy_polygons = len(self.decoy_polygons)
         self.info.trail_length = len(self.trail)
 
@@ -833,26 +831,43 @@ class Maze:
 
         return h_lines, v_lines, cells
 
-    def show_maze(self, show_cells=False, mark_trail=False):
+    def show_maze(self, show_marked_cells=False, mark_trail_lines=False, pause=0):
         window = tk.Tk()
         window.title('Maze')
         width = gv.LINE_SIZE * (self.width+2)
         height = gv.LINE_SIZE * (self.height+2)
         frame_1 = tk.Frame(window)
         frame_1.pack(fill='both', side='top', expand=tk.YES)
+        frame_2 = tk.Frame(window)
+        frame_2.pack(fill='both', side='bottom', expand=tk.YES)
         board = tk.Canvas(frame_1, width=width, height=height)
         board.pack(expand=tk.YES, fill=tk.BOTH)
+
+        button_show_trail = tk.Button(frame_2, text="show trail", command=lambda: self.toggle_trail(window, board, button_show_trail))
+        button_show_trail.grid(row=0, column=0, sticky='W', padx=5, pady=5)
 
         x_00 = gv.X_00
         y_00 = gv.Y_00
         row = 0
+        trail_cells = None
+
+        # entrance
+        x = x_00 + gv.LINE_SIZE * self.start_col
+        start_y = y_00
+        end_y = start_y - gv.LINE_SIZE/2
+        board.create_line(x, start_y, x, end_y, fill=gv.NO_TRAIL_LINE_COLOR)
+        x += gv.LINE_SIZE
+        board.create_line(x, start_y, x, end_y, fill=gv.NO_TRAIL_LINE_COLOR)
+
         for line in self.h_lines:
             for col in range(len(line)):
                 y = y_00 + gv.LINE_SIZE*row
                 start_x = x_00 + gv.LINE_SIZE*col
                 end_x = start_x + gv.LINE_SIZE
                 if not line[col].is_open():
-                    board.create_line(start_x, y, end_x, y, fill=self.get_line_color(line[col], mark_trail))
+                    board.create_line(start_x, y, end_x, y, fill=self.get_line_color(line[col], mark_trail_lines))
+                if pause:
+                    window.update()
             row += 1
         col = 0
         for line in self.v_lines:
@@ -861,44 +876,75 @@ class Maze:
                 start_y = y_00 + gv.LINE_SIZE * row
                 end_y = start_y + gv.LINE_SIZE
                 if not line[row].is_open():
-                    board.create_line(x, start_y, x, end_y, fill=self.get_line_color(line[row], mark_trail))
+                    board.create_line(x, start_y, x, end_y, fill=self.get_line_color(line[row], mark_trail_lines))
+                    if pause:
+                        window.update()
             col += 1
 
-        # entrance and exit
-        x = x_00 + gv.LINE_SIZE * self.start_col
-        start_y = y_00
-        end_y = start_y - gv.LINE_SIZE/2
-        board.create_line(x, start_y, x, end_y, fill=gv.NO_TRAIL_LINE_COLOR)
-        x += gv.LINE_SIZE
-        board.create_line(x, start_y, x, end_y, fill=gv.NO_TRAIL_LINE_COLOR)
+        # exit
         x = x_00 + gv.LINE_SIZE * self.end_col
         start_y = y_00 + self.height * gv.LINE_SIZE
         end_y = start_y + gv.LINE_SIZE/2
         board.create_line(x, start_y, x, end_y, fill=gv.NO_TRAIL_LINE_COLOR)
         x += gv.LINE_SIZE
         board.create_line(x, start_y, x, end_y, fill=gv.NO_TRAIL_LINE_COLOR)
-
-        if show_cells:
-            x_00 += gv.LINE_SIZE/4
-            y_00 += gv.LINE_SIZE/4
-            for row in range(self.height):
-                for col in range(self.width):
-                    if self.cells[row][col].show_cell:
-                        hx_left = x_00 + gv.LINE_SIZE*col
-                        hx_right = hx_left + gv.LINE_SIZE/2
-                        hy = y_00 + gv.LINE_SIZE*row + gv.LINE_SIZE/4
-                        vx = hx_left + gv.LINE_SIZE/4
-                        vy_up = y_00 + gv.LINE_SIZE*row
-                        vy_down = vy_up + gv.LINE_SIZE/2
-                        board.create_line(hx_left, hy, hx_right, hy, fill=gv.SHOW_CELL_COLOR)
-                        board.create_line(vx, vy_up, vx, vy_down, fill=gv.SHOW_CELL_COLOR)
+        # trail
+        if show_marked_cells:
+            self.get_and_show_marked_cells(window, board)
 
         window.update()
         window.mainloop()
 
-    def get_line_color(self, line, mark_trail=False):
+    def delete_marked_cells(self, window, board):
+        for c in self.marked_cells:
+            board.delete(c)
+        window.update()
+
+    def get_and_show_marked_cells(self, window, board):
+        x_00 = gv.X_00
+        y_00 = gv.Y_00
+        self.marked_cells = []
+
+        x_00 += gv.LINE_SIZE/3
+        y_00 += gv.LINE_SIZE/3
+        top_x = x_00 + gv.LINE_SIZE * self.start_col
+        bottom_x = top_x + gv.LINE_SIZE / 3
+        top_y = y_00 - gv.LINE_SIZE
+        bottom_y = top_y + gv.LINE_SIZE / 3
+        self.marked_cells.append(board.create_oval(top_x, top_y, bottom_x, bottom_y, fill=gv.SHOW_CELL_COLOR, outline=gv.SHOW_CELL_COLOR))
+        for row in range(self.height):
+            for col in range(self.width):
+                if self.cells[row][col].show_cell:
+                    top_x = x_00 + gv.LINE_SIZE*col
+                    bottom_x = top_x + gv.LINE_SIZE/3
+                    top_y = y_00 + gv.LINE_SIZE*row
+                    bottom_y = top_y + gv.LINE_SIZE/3
+                    self.marked_cells.append(board.create_oval(top_x, top_y, bottom_x, bottom_y, fill=gv.SHOW_CELL_COLOR, outline=gv.SHOW_CELL_COLOR))
+        top_x = x_00 + gv.LINE_SIZE * self.end_col
+        bottom_x = top_x + gv.LINE_SIZE / 3
+        top_y = y_00 + (row+1)*gv.LINE_SIZE
+        bottom_y = top_y + gv.LINE_SIZE / 3
+        self.marked_cells.append(board.create_oval(top_x, top_y, bottom_x, bottom_y, fill=gv.SHOW_CELL_COLOR, outline=gv.SHOW_CELL_COLOR))
+        window.update()
+
+    def toggle(self, b):
+        if b.config('relief')[-1] == 'sunken':
+            b.config(relief="raised")
+            return 'off'
+        else:
+            b.config(relief="sunken")
+            return 'on'
+
+    def toggle_trail(self, window, board, button_show_trail):
+        if self.toggle(button_show_trail) == 'on':
+            self.get_and_show_marked_cells(window, board)
+        else:
+            self.delete_marked_cells(window, board)
+        window.update()
+
+    def get_line_color(self, line, mark_trail_lines=False):
         color = gv.NO_TRAIL_LINE_COLOR
-        if not mark_trail:
+        if not mark_trail_lines:
             return color
         if line.is_left_trail_wall and line.is_right_trail_wall:
             color = gv.BOTH_SIDES_TRAIL_LINE_COLOR

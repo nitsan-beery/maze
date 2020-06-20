@@ -1,11 +1,11 @@
 
-MAZE_WIDTH = 31             # number of columns
+MAZE_WIDTH = 21            # number of columns
 MAZE_HEIGHT = MAZE_WIDTH    # number of rows
 
 DEBUG_MODE = False
 MARK_TRAIL = True
 
-MAX_STRAIT_LINE = max(2, int(MAZE_WIDTH/3))
+MAX_STRAIT_LINE = max(2, int(MAZE_WIDTH/5))
 MIN_ROWS_TO_SPLIT_POLYGON = 3
 MAX_POLYGON_PERCENTAGE_AREA = 1 #0.25
 
