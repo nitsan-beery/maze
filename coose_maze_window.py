@@ -28,16 +28,20 @@ class ChooseMaze:
         self.entry_height.grid(row=0, column=3)
 
         self.button_show = tk.Button(self.frame_3, text='Show maze', bg='#DDF2FF', command=lambda: self.show_maze())
+        self.button_new = tk.Button(self.frame_3, text='New maze', command=lambda: self.select_new_maze())
         self.button_load = tk.Button(self.frame_3, text='Load maze', command=lambda: self.load_maze())
         self.button_show.pack(side=tk.LEFT, fill=tk.BOTH, padx=5)
         self.button_load.pack(side=tk.RIGHT, fill=tk.BOTH, padx=5)
+        self.button_new.pack(side=tk.RIGHT, fill=tk.BOTH, padx=12)
 
         self.entry_width.insert(0, gv.MAZE_WIDTH)
         self.entry_height.insert(0, gv.MAZE_HEIGHT)
         self.entry_width.focus_set()
         self.window_main.bind('<Key>', self.key)
 
-    def show_maze(self):
+        self.maze = None
+
+    def select_new_maze(self):
         is_valid_size = True
         try:
             width = int(self.entry_width.get())
@@ -51,18 +55,40 @@ class ChooseMaze:
             if width < 2 or height < 2:
                 is_valid_size = False
         if is_valid_size:
-            m = Maze(width, height)
-            m.set_maze()
+            self.maze = Maze(width, height)
+            self.maze.set_maze()
+            self.maze.show_maze()
             #debug
-            print(f'length: {m.info.trail_length}   decoy polygons: {m.info.num_of_decoy_polygons}')
-            m.show_maze()
+            #print(f'length: {m.info.trail_length}   decoy polygons: {m.info.num_of_decoy_polygons}')
+
         else:
             print(f'Invalid size (width x height)')
 
+    def show_maze(self):
+        if self.maze is None:
+            self.select_new_maze()
+            if self.maze is None:
+                return
+        else:
+            self.maze.show_maze()
+
     def load_maze(self):
-        pass
+        filename = filedialog.askopenfilename(parent=self.window_main, initialdir="./saved_mazes/", title="Select file",
+                                                   filetypes=(("json files", "*.json"), ("all files", "*.*")))
+        if filename == '':
+            return
+        with open(filename, "r") as json_file:
+            maze_data = json.load(json_file)
+        self.maze = Maze()
+        self.maze.set_maze_data(maze_data)
+        self.entry_width.delete(0, tk.END)
+        self.entry_height.delete(0, tk.END)
+        self.entry_width.insert(0, self.maze.width)
+        self.entry_height.insert(0, self.maze.height)
+        self.maze.show_maze()
 
     def key(self, event):
         if event.keycode == 13:
             self.show_maze()
+            
 

@@ -1,12 +1,14 @@
 import global_vars as gv
 import random
 import tkinter as tk
-
+from tkinter import filedialog
+import json
 
 def my_randint(a, b):
     return random.randint(a, b)
 #    f = random.random()
 #    return a+int(f*(b-a+1))
+
 
 
 class PolRow:
@@ -845,6 +847,10 @@ class Maze:
 
         button_show_trail = tk.Button(frame_2, text="show trail", command=lambda: self.toggle_trail(window, board, button_show_trail))
         button_show_trail.grid(row=0, column=0, sticky='W', padx=5, pady=5)
+        button_print_maze = tk.Button(frame_2, text="Print", command=lambda: self.printer_maze())
+        button_print_maze.grid(row=0, column=1, sticky='W', padx=20, pady=5)
+        button_save_maze = tk.Button(frame_2, text="Save", command=lambda: self.save_maze(window))
+        button_save_maze.grid(row=0, column=2, sticky='E', padx=5, pady=5)
 
         x_00 = gv.X_00
         y_00 = gv.Y_00
@@ -894,6 +900,71 @@ class Maze:
 
         window.update()
         window.mainloop()
+
+    def set_maze_data(self, json_data):
+        self.width = json_data.get("width")
+        self.height = json_data.get("height")
+        self.start_col = json_data.get("start_col")
+        self.end_col = json_data.get("end_col")
+        self.h_lines, self.v_lines, self.cells = self.reset_state()
+        self.trail = json_data.get("trail")
+        for cell in self.trail:
+            self.cells[cell[0]][cell[1]].show_cell = True
+
+        h_lines = json_data.get("h_lines")
+        v_lines = json_data.get("v_lines")
+
+        for row in range(self.height+1):
+            for col in range(self.width):
+                line = h_lines[row][col]
+                self.h_lines[row][col].is_wall = line
+
+        for col in range(self.width+1):
+            for row in range(self.height):
+                line = v_lines[col][row]
+                self.v_lines[col][row].is_wall = line
+
+    def get_maze_data(self):
+        h_lines = []
+        v_lines = []
+        for row in range(self.height+1):
+            strip = []
+            for col in range(self.width):
+                line = self.h_lines[row][col]
+                strip.append(not line.is_open())
+            h_lines.append(strip)
+
+        for col in range(self.width+1):
+            strip = []
+            for row in range(self.height):
+                line = self.v_lines[col][row]
+                strip.append(not line.is_open())
+            v_lines.append(strip)
+
+        md = {
+            "width": self.width,
+            "height": self.height,
+            "start_col": self.start_col,
+            "end_col": self.end_col,
+            "h_lines": h_lines,
+            "v_lines": v_lines,
+            "trail": self.trail
+        }
+
+        return md
+
+    def save_maze(self, root):
+        default_file_name = f'maze{self.width}x{self.height}-trail_length{len(self.trail)}.json'
+        filename = filedialog.asksaveasfilename(parent=root, initialdir="./saved_mazes/", title="Select file", initialfile=default_file_name,
+                                                filetypes=(("json files", "*.json"), ("all files", "*.*")))
+        if filename == '':
+            return
+        maze_data = self.get_maze_data()
+        with open(filename, "w") as json_file:
+            json.dump(maze_data, json_file)
+
+    def printer_maze(self):
+        pass
 
     def delete_marked_cells(self, window, board):
         for c in self.marked_cells:
