@@ -10,15 +10,10 @@ def taskkill_this():
 
 
 def main():
-    '''
+    atexit.register(taskkill_this)
     m = Maze()
     m.set_maze()
     m.show_maze()
-    '''
-    atexit.register(taskkill_this)
-    cm = ChooseMaze()
-    cm.window_main.update()
-    cm.window_main.mainloop()
 
 main()
 

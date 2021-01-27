@@ -3,6 +3,7 @@ import json
 import global_vars as gv
 from print_canvas import *
 import random
+import win32api
 
 
 def my_randint(a, b):
@@ -40,7 +41,7 @@ class Line:
 
 class MazeInfo:
     def __init__(self):
-        self.num_of_decoy_polygons = 0
+        self.num_of_sub_mazes = 0
         self.trail_length = 0
 
 
@@ -57,9 +58,11 @@ class Cell:
 class Maze:
     def __init__(self, width=gv.MAZE_WIDTH, height=gv.MAZE_HEIGHT):
         self.width = width
-        if not self.width % 2:
-            self.width += 1
         self.height = height
+        self.board_width = max(gv.LINE_SIZE * (self.width+2) + 2 * gv.h_gap, gv.min_win_width)
+        self.board_height = gv.LINE_SIZE * (self.height+2) + gv.v_gap
+        self.x_pos = int((win32api.GetSystemMetrics(0) - self.board_width) * gv.win_x_pos) - gv.win_border
+        self.y_pos = int((win32api.GetSystemMetrics(1) - self.board_height) * gv.win_y_pos) - gv.win_border
         self.start_col = my_randint(0, self.width-1)
         self.end_col = my_randint(0, self.width-1)
         self.h_lines, self.v_lines, self.cells = self.reset_state()
@@ -67,19 +70,34 @@ class Maze:
         self.right_trail_wall = []
         self.trail = []
         self.marked_cells = []
-        self.decoy_polygons = []
+        self.sub_mazes = []
+        self.info = MazeInfo()
+
+    def reset(self, width=gv.MAZE_WIDTH, height=gv.MAZE_HEIGHT):
+        self.width = width
+        self.height = height
+        self.board_width = max(gv.LINE_SIZE * (self.width+2) + 2 * gv.h_gap, gv.min_win_width)
+        self.board_height = gv.LINE_SIZE * (self.height+2) + gv.v_gap
+        self.start_col = my_randint(0, self.width-1)
+        self.end_col = my_randint(0, self.width-1)
+        self.h_lines, self.v_lines, self.cells = self.reset_state()
+        self.left_trail_wall = []
+        self.right_trail_wall = []
+        self.trail = []
+        self.marked_cells = []
+        self.sub_mazes = []
         self.info = MazeInfo()
 
     def set_maze(self):
         self.set_trail()
-        self.set_decoy_polygons()
-        for pol in self.decoy_polygons:
+        self.set_sub_mazes()
+        for pol in self.sub_mazes:
             tw = self.get_polygon_trail_walls(pol)
             i = my_randint(0, len(tw)-1)
             self.open_trail_wall(tw[i])
-        for pol in self.decoy_polygons:
-            self.fill_decoy_polygon_with_trails(pol)
-        self.info.num_of_decoy_polygons = len(self.decoy_polygons)
+        for pol in self.sub_mazes:
+            self.fill_sub_maze_with_trails(pol)
+        self.info.num_of_sub_mazes = len(self.sub_mazes)
         self.info.trail_length = len(self.trail)
 
     def clean_polygon_cells(self, pol):
@@ -92,7 +110,7 @@ class Maze:
             self.cells[row][col].can_go_left = True
             self.cells[row][col].can_go_right = True
 
-    def fill_decoy_polygon_with_trails(self, pol):
+    def fill_sub_maze_with_trails(self, pol):
         row = 1
         col = 1
         self.set_trail_in_polygon(pol)
@@ -107,7 +125,7 @@ class Maze:
 
     def set_trail_in_polygon(self, pol):
         self.clean_polygon_cells(pol)
-        entry_side, cell = self.get_entrance_cell_to_decoy_polygon(pol)
+        entry_side, cell = self.get_entrance_cell_to_sub_maze(pol)
         row = cell[0]
         col = cell[1]
         if entry_side == 'up':
@@ -146,7 +164,7 @@ class Maze:
             pol2.append(pol[i])
         return pol1, pol2
 
-    def set_decoy_polygons(self):
+    def set_sub_mazes(self):
         row = 0
         col = 0
         while True:
@@ -154,19 +172,19 @@ class Maze:
             if row is None:
                 break
             polygon_cells = self.get_empty_polygon(row, col)
-            self.decoy_polygons.append(polygon_cells)
+            self.sub_mazes.append(polygon_cells)
         maze_size = self.height * self.width
-        i = len(self.decoy_polygons)-1
+        i = len(self.sub_mazes)-1
         while i >= 0:
-            pol = self.decoy_polygons[i]
+            pol = self.sub_mazes[i]
             if len(pol) > maze_size * gv.MAX_POLYGON_PERCENTAGE_AREA:
                 pol1, pol2 = self.split_polygon(pol)
                 if pol1 is not None:
-                    self.decoy_polygons[i] = pol1
-                    self.decoy_polygons.insert(i+1, pol2)
+                    self.sub_mazes[i] = pol1
+                    self.sub_mazes.insert(i+1, pol2)
             i -= 1
 
-    def get_entrance_cell_to_decoy_polygon(self, pol):
+    def get_entrance_cell_to_sub_maze(self, pol):
         rows = self.get_pol_rows(pol)
         # first row
         row = rows[0].row
@@ -814,21 +832,41 @@ class Maze:
     def show_maze(self, show_marked_cells=False, mark_trail_lines=False, pause=0):
         window = tk.Tk()
         window.title('Maze')
-        width = gv.LINE_SIZE * (self.width+2)
-        height = gv.LINE_SIZE * (self.height+2)
+        window.geometry(f'{self.board_width}x{self.board_height+80}+{self.x_pos}+{self.y_pos}')
+
         frame_1 = tk.Frame(window)
         frame_1.pack(fill='both', side='top', expand=tk.YES)
         frame_2 = tk.Frame(window)
         frame_2.pack(fill='both', side='bottom', expand=tk.YES)
-        board = tk.Canvas(frame_1, width=width, height=height)
+        frame_3 = tk.Frame(window)
+        frame_3.pack(fill='both', side='bottom', expand=tk.YES)
+        board = tk.Canvas(frame_1, width=self.board_width, height=self.board_height)
         board.pack(expand=tk.YES, fill=tk.BOTH)
 
         button_show_trail = tk.Button(frame_2, text="Show trail", command=lambda: self.toggle_trail(window, board, button_show_trail))
-        button_show_trail.grid(row=0, column=0, sticky='W', padx=5, pady=5)
-        button_print_maze = tk.Button(frame_2, text="Print", command=lambda: print_canvas(window, board))
-        button_print_maze.grid(row=0, column=1, sticky='W', padx=5, pady=5)
-        button_save_maze = tk.Button(frame_2, text="Save maze", command=lambda: self.save_maze(window))
-        button_save_maze.grid(row=0, column=2, sticky='E', padx=5, pady=5)
+        button_print_maze = tk.Button(frame_2, text="Print maze", command=lambda: print_canvas(window, board))
+        button_save = tk.Button(frame_2, text="Save maze", command=lambda: self.save_maze(window))
+        button_load = tk.Button(frame_2, text='Load maze', command=lambda: self.load_maze(window))
+
+        button_show_trail.pack(side=tk.LEFT, padx=5, pady=5)
+        button_print_maze.pack(side=tk.LEFT, padx=5)
+        button_save.pack(side=tk.LEFT, padx=5)
+        button_load.pack(side=tk.LEFT, padx=5)
+
+        entry_width = tk.Entry(frame_3, width=4, justify=tk.CENTER)
+        label_x = tk.Label(frame_3, text='x', padx=1)
+        entry_height = tk.Entry(frame_3, width=4, justify=tk.CENTER)
+        button_new = tk.Button(frame_3, text='New maze', command=lambda: self.select_new_maze(window, entry_width, entry_height))
+
+        button_new.pack(side=tk.LEFT, padx=5)
+        entry_width.pack(side=tk.LEFT, padx=5)
+        label_x.pack(side=tk.LEFT)
+        entry_height.pack(side=tk.LEFT, padx=5)
+
+        entry_width.delete(0, tk.END)
+        entry_width.insert(0, self.width)
+        entry_height.delete(0, tk.END)
+        entry_height.insert(0, self.height)
 
         x_00 = gv.X_00
         y_00 = gv.Y_00
@@ -882,6 +920,8 @@ class Maze:
     def set_maze_data(self, json_data):
         self.width = json_data.get("width")
         self.height = json_data.get("height")
+        self.board_width = max(gv.LINE_SIZE * (self.width+2), gv.min_win_width)
+        self.board_height = gv.LINE_SIZE * (self.height+2)
         self.start_col = json_data.get("start_col")
         self.end_col = json_data.get("end_col")
         self.h_lines, self.v_lines, self.cells = self.reset_state()
@@ -941,6 +981,42 @@ class Maze:
         maze_data = self.get_maze_data()
         with open(filename, "w") as json_file:
             json.dump(maze_data, json_file)
+
+    def select_new_maze(self, root, entry_width, entry_height):
+        is_valid_size = True
+        try:
+            width = int(entry_width.get())
+            height = int(entry_height.get())
+        except ValueError:
+            is_valid_size = False
+        if is_valid_size:
+            if width < 2 or height < 2:
+                is_valid_size = False
+        if is_valid_size:
+            self.x_pos = root.winfo_x()
+            self.y_pos = root.winfo_y()
+            root.destroy()
+            self.reset(width, height)
+            self.set_maze()
+            self.show_maze()
+            #debug
+            #print(f'length: {m.info.trail_length}   decoy polygons: {m.info.num_of_sub_mazes}')
+
+        else:
+            print(f'Invalid size (width x height)')
+
+    def load_maze(self, root):
+        filename = filedialog.askopenfilename(parent=root, initialdir="./saved_mazes/", title="Select file",
+                                                   filetypes=(("json files", "*.json"), ("all files", "*.*")))
+        if filename == '':
+            return
+        self.x_pos = root.winfo_x()
+        self.y_pos = root.winfo_y()
+        root.destroy()
+        with open(filename, "r") as json_file:
+            maze_data = json.load(json_file)
+        self.set_maze_data(maze_data)
+        self.show_maze()
 
     def delete_marked_cells(self, window, board):
         for c in self.marked_cells:
