@@ -1,14 +1,12 @@
-import global_vars as gv
-import random
-import tkinter as tk
 from tkinter import filedialog
 import json
+import global_vars as gv
+from print_canvas import *
+import random
+
 
 def my_randint(a, b):
     return random.randint(a, b)
-#    f = random.random()
-#    return a+int(f*(b-a+1))
-
 
 
 class PolRow:
@@ -74,15 +72,11 @@ class Maze:
 
     def set_maze(self):
         self.set_trail()
-        #debug
-        #self.show_maze(mark_trail=True)
         self.set_decoy_polygons()
         for pol in self.decoy_polygons:
             tw = self.get_polygon_trail_walls(pol)
             i = my_randint(0, len(tw)-1)
             self.open_trail_wall(tw[i])
-        # debug
-        #print(f'{len(self.decoy_polygons)} decoy polygons')
         for pol in self.decoy_polygons:
             self.fill_decoy_polygon_with_trails(pol)
         self.info.num_of_decoy_polygons = len(self.decoy_polygons)
@@ -140,8 +134,6 @@ class Maze:
         while counter < split_cell and mid_row < len(rows)-1:
             counter += rows[mid_row].right_col-rows[mid_row].left_col+1
             mid_row += 1
-        #debug
-        #print(f'pol size: {len(pol)}   rows: {len(rows)}    counter: {counter}   mid row: {mid_row}')
         self.set_ceiling(rows[mid_row].row, rows[mid_row].left_col, rows[mid_row].right_col)
         pol1 = []
         pol2 = []
@@ -367,16 +359,8 @@ class Maze:
             side, next_cell = self.choose_next_cell(cell, side, is_main_trail)
             if next_cell is None:
                 break
-            # debug
-            if gv.DEBUG_MODE:
-                print(f'cell: {cell}   next cell: {next_cell}   side: {side}')
             prev_direction, trail = self.add_trail_between_cells(prev_direction, cell, next_cell, trail)
             cell = next_cell
-            #debug
-#        if not is_main_trail:
-#            for cell in trail:
-#                self.cells[cell[0]][cell[1]].show_cell = True
-            #self.show_maze(True)
         if is_main_trail:
             self.trail = trail
             self.trail.append((self.height-1, self.end_col))
@@ -636,16 +620,12 @@ class Maze:
             if cell.can_go_left:
                 if col - lim_left_wall > gv.MAX_STRAIT_LINE:
                     lim_left_wall = col - gv.MAX_STRAIT_LINE
-                #debug
-                #print(f'row: {row}   lim_left_wall: {lim_left_wall}   col: {col}')
                 next_col = my_randint(lim_left_wall, col-1)
                 return_side = 'v'
                 found_cell = True
             elif cell.can_go_right:
                 if (lim_right_wall-1) - col > gv.MAX_STRAIT_LINE:
                     lim_right_wall = col + gv.MAX_STRAIT_LINE + 1
-                #debug
-                #print(f'row: {row}   col: {col}   lim_right_wall: {lim_right_wall}')
                 next_col = my_randint(col+1, lim_right_wall-1)
                 return_side = 'v'
                 found_cell = True
@@ -664,8 +644,6 @@ class Maze:
                 found_cell = True
         # no open side
         if not found_cell:
-            # debug
-            #print(f'cant find next cell,   side: {side}')
             return None, None
         
         return return_side, (next_row, next_col)
@@ -845,11 +823,11 @@ class Maze:
         board = tk.Canvas(frame_1, width=width, height=height)
         board.pack(expand=tk.YES, fill=tk.BOTH)
 
-        button_show_trail = tk.Button(frame_2, text="show trail", command=lambda: self.toggle_trail(window, board, button_show_trail))
+        button_show_trail = tk.Button(frame_2, text="Show trail", command=lambda: self.toggle_trail(window, board, button_show_trail))
         button_show_trail.grid(row=0, column=0, sticky='W', padx=5, pady=5)
-        button_print_maze = tk.Button(frame_2, text="Print", command=lambda: self.printer_maze())
-        button_print_maze.grid(row=0, column=1, sticky='W', padx=20, pady=5)
-        button_save_maze = tk.Button(frame_2, text="Save", command=lambda: self.save_maze(window))
+        button_print_maze = tk.Button(frame_2, text="Print", command=lambda: print_canvas(window, board))
+        button_print_maze.grid(row=0, column=1, sticky='W', padx=5, pady=5)
+        button_save_maze = tk.Button(frame_2, text="Save maze", command=lambda: self.save_maze(window))
         button_save_maze.grid(row=0, column=2, sticky='E', padx=5, pady=5)
 
         x_00 = gv.X_00
@@ -954,17 +932,15 @@ class Maze:
         return md
 
     def save_maze(self, root):
-        default_file_name = f'maze{self.width}x{self.height}-trail_length{len(self.trail)}.json'
-        filename = filedialog.asksaveasfilename(parent=root, initialdir="./saved_mazes/", title="Select file", initialfile=default_file_name,
+        default_file_name = f'maze-{self.width}x{self.height} trail_length-{len(self.trail)}'
+        filename = filedialog.asksaveasfilename(parent=root, initialdir="./saved_mazes/", title="Select file",
+                                                initialfile=default_file_name, defaultextension=".json",
                                                 filetypes=(("json files", "*.json"), ("all files", "*.*")))
         if filename == '':
             return
         maze_data = self.get_maze_data()
         with open(filename, "w") as json_file:
             json.dump(maze_data, json_file)
-
-    def printer_maze(self):
-        pass
 
     def delete_marked_cells(self, window, board):
         for c in self.marked_cells:

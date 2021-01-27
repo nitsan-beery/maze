@@ -1,15 +1,14 @@
 
-MAZE_WIDTH = 10            # number of columns
+MAZE_WIDTH = 35            # number of columns
 MAZE_HEIGHT = MAZE_WIDTH    # number of rows
 
 DEBUG_MODE = False
-MARK_TRAIL = True
 
-MAX_STRAIT_LINE = max(2, int(MAZE_WIDTH/5))
+MAX_STRAIT_LINE = max(2, int(MAZE_WIDTH/4))
 MIN_ROWS_TO_SPLIT_POLYGON = 3
 MAX_POLYGON_PERCENTAGE_AREA = 1 #0.25
 
-LINE_SIZE = 20
+LINE_SIZE = 15
 NO_TRAIL_LINE_COLOR = 'black'
 LEFT_TRAIL_LINE_COLOR = 'red'
 RIGHT_TRAIL_LINE_COLOR = 'blue'

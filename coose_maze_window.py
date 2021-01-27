@@ -1,5 +1,6 @@
 from maze import *
 
+
 class ChooseMaze:
     def __init__(self):
         self.window_main = tk.Tk(className=' Choose maze')
@@ -27,8 +28,8 @@ class ChooseMaze:
         self.label_x.grid(row=0, column=2, padx=2, sticky='W')
         self.entry_height.grid(row=0, column=3)
 
-        self.button_show = tk.Button(self.frame_3, text='Show maze', bg='#DDF2FF', command=lambda: self.show_maze())
-        self.button_new = tk.Button(self.frame_3, text='New maze', command=lambda: self.select_new_maze())
+        self.button_show = tk.Button(self.frame_3, text='New maze', bg='#DDF2FF', command=lambda: self.select_new_maze())
+        self.button_new = tk.Button(self.frame_3, text='Show maze', command=lambda: self.show_maze())
         self.button_load = tk.Button(self.frame_3, text='Load maze', command=lambda: self.load_maze())
         self.button_show.pack(side=tk.LEFT, fill=tk.BOTH, padx=5)
         self.button_load.pack(side=tk.RIGHT, fill=tk.BOTH, padx=5)
@@ -89,6 +90,6 @@ class ChooseMaze:
 
     def key(self, event):
         if event.keycode == 13:
-            self.show_maze()
+            self.select_new_maze()
             
 
