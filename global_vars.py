@@ -1,5 +1,5 @@
 
-MAZE_WIDTH = 21            # number of columns
+MAZE_WIDTH = 15            # number of columns
 MAZE_HEIGHT = MAZE_WIDTH    # number of rows
 
 win_x_pos = 0.5
