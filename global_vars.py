@@ -1,6 +1,9 @@
 
-MAZE_WIDTH = 23
+MAZE_WIDTH = 30
 MAZE_HEIGHT = MAZE_WIDTH
+
+MAX_SIZE = 49
+MIN_SIZE = 2
 
 win_x_pos = 0.5
 win_y_pos = 0.3
@@ -19,5 +22,8 @@ h_gap = 15
 v_gap = 10
 X_00 = h_gap+LINE_SIZE
 Y_00 = v_gap+LINE_SIZE
+
+# for miscellaneous data
+args = None
 
 

@@ -37,8 +37,9 @@ class Maze:
     def __init__(self, width=gv.MAZE_WIDTH, height=gv.MAZE_HEIGHT):
         self.width = width
         self.height = height
-        self.board_width = max(gv.LINE_SIZE * (self.width+2) + 2 * gv.h_gap, gv.min_win_width)
-        self.board_height = gv.LINE_SIZE * (self.height+2) + gv.v_gap
+        self.board_width = 0
+        self.board_height = 0
+        self.set_board_geometry()
         self.x_pos = int((win32api.GetSystemMetrics(0) - self.board_width) * gv.win_x_pos) - gv.win_border
         self.y_pos = int((win32api.GetSystemMetrics(1) - self.board_height) * gv.win_y_pos) - gv.win_border
         self.start_col = random.randint(0, self.width-1)
@@ -50,11 +51,14 @@ class Maze:
         self.marked_cells = []
         self.sub_mazes = []
 
+    def set_board_geometry(self):
+        self.board_width = max(gv.LINE_SIZE * (self.width+2) + 2 * gv.h_gap, gv.min_win_width)
+        self.board_height = gv.LINE_SIZE * (self.height+2) + gv.v_gap
+
     def reset(self, width=gv.MAZE_WIDTH, height=gv.MAZE_HEIGHT):
         self.width = width
         self.height = height
-        self.board_width = max(gv.LINE_SIZE * (self.width+2) + 2 * gv.h_gap, gv.min_win_width)
-        self.board_height = gv.LINE_SIZE * (self.height+2) + gv.v_gap
+        self.set_board_geometry()
         self.start_col = random.randint(0, self.width-1)
         self.end_col = random.randint(0, self.width-1)
         self.h_lines, self.v_lines, self.cells = self.reset_state()
@@ -71,16 +75,18 @@ class Maze:
         self.h_lines[self.height][self.end_col].open()
 
     def fill_maze_with_trails(self, free_cells):
-        self.set_trail((0, self.start_col))
-        row, col = self.get_next_empty_cell_in_sub_maze(free_cells)
-        while row is not None:
+        trail = self.set_trail((0, self.start_col))
+        free_cells = [cell for cell in free_cells if cell not in trail]
+        while len(free_cells) > 0:
+            row = free_cells[0][0]
+            col = free_cells[0][1]
             new_sm = self.get_sub_maze((row, col))
             tw = self.get_sub_maze_inner_border(new_sm)
             i = random.randint(0, len(tw) - 1)
             self.open_trail_wall(tw[i])
             cell = self.get_entrance_cell_to_sub_maze(new_sm)
-            self.set_trail(cell)
-            row, col = self.get_next_empty_cell_in_sub_maze(free_cells)
+            trail = self.set_trail(cell)
+            free_cells = [cell for cell in free_cells if cell not in trail]
 
     # return list of TrailWalls = inner border of the sub maze (one and only one of them should be opened)
     def get_sub_maze_inner_border(self, sm):
@@ -160,16 +166,10 @@ class Maze:
             cs.append(cs_row)
         return cs
 
-    def get_next_empty_cell_in_sub_maze(self, sm):
-        for row in range(self.height):
-            for col in range(self.width):
-                if self.cells[row][col].is_free:
-                    return row, col
-        return None, None
-
     def set_trail(self, first_cell=(0, 0)):
         self.cells[first_cell[0]][first_cell[1]].is_free = False
         cell = first_cell
+        trail = [cell]
         i = random.randint(0, 1)
         if i:
             side = 'v'
@@ -178,41 +178,49 @@ class Maze:
         while cell is not None:
             next_cell, direction = self.choose_next_cell(cell, side)
             if next_cell is not None:
-                self.add_trail_between_cells(direction, cell, next_cell)
+                trail += self.add_trail_between_cells(direction, cell, next_cell)
                 if direction == 'left' or direction == 'right':
                     side = 'v'
                 else:
                     side = 'h'
             cell = next_cell
+        return trail
 
     def add_trail_between_cells(self, direction, cell1, cell2):
         row1 = cell1[0]
         col1 = cell1[1]
         row2 = cell2[0]
         col2 = cell2[1]
-
+        trail = []
         if direction == 'right':
             row = row1
             for col in range(col1, col2):
                 self.cells[row][col].is_free = False
                 self.v_lines[col+1][row].is_wall = False
+                trail.append((row, col))
         elif direction == 'left':
             row = row1
             for col in range(col1, col2, -1):
                 self.cells[row][col].is_free = False
                 self.v_lines[col][row].is_wall = False
+                trail.append((row, col))
         elif direction == 'down':
             col = col1
             for row in range(row1, row2):
                 self.cells[row][col].is_free = False
                 self.h_lines[row+1][col].is_wall = False
+                trail.append((row, col))
         else:   # up
             col = col1
             for row in range(row1, row2, -1):
                 self.cells[row][col].is_free = False
                 self.h_lines[row][col].is_wall = False
+                trail.append((row, col))
 
         self.cells[row2][col2].is_free = False
+        trail.pop(0)
+        trail.append((row2, col2))
+        return trail
 
     # return next cell in trail and direction towards it
     def choose_next_cell(self, current_cell, side):
@@ -433,10 +441,23 @@ class Maze:
         entry_height.delete(0, tk.END)
         entry_height.insert(0, self.height)
 
+        gv.args = {
+            'root': window,
+            'entry_width': entry_width,
+            'entry_height': entry_height
+        }
+        window.bind('<Key>', self.board_key)
+        window.update()
+        window.focus_force()
+        entry_width.selection_range(0, tk.END)
+        entry_width.focus_set()
+        x = button_new.winfo_x() + frame_3.winfo_x() + 45
+        y = button_new.winfo_y() + frame_3.winfo_y() + 45
+        win32api.SetCursorPos((self.x_pos + x, self.y_pos + y))
+
         x_00 = gv.X_00
         y_00 = gv.Y_00
         row = 0
-        trail_cells = None
 
         # entrance
         x = x_00 + gv.LINE_SIZE * self.start_col
@@ -482,11 +503,17 @@ class Maze:
         window.update()
         window.mainloop()
 
+    def board_key(self, key):
+        if key.keycode == 13:
+            root = gv.args.get('root')
+            entry_width = gv.args.get('entry_width')
+            entry_height = gv.args.get('entry_height')
+            self.select_new_maze(root, entry_width, entry_height)
+
     def set_maze_data(self, json_data):
         self.width = json_data.get("width")
         self.height = json_data.get("height")
-        self.board_width = max(gv.LINE_SIZE * (self.width+2), gv.min_win_width)
-        self.board_height = gv.LINE_SIZE * (self.height+2)
+        self.set_board_geometry()
         self.start_col = json_data.get("start_col")
         self.end_col = json_data.get("end_col")
         self.h_lines, self.v_lines, self.cells = self.reset_state()
@@ -555,7 +582,7 @@ class Maze:
         except ValueError:
             is_valid_size = False
         if is_valid_size:
-            if width < 2 or height < 2:
+            if not gv.MIN_SIZE <= width <= gv.MAX_SIZE or not gv.MIN_SIZE <= height <= gv.MAX_SIZE:
                 is_valid_size = False
         if is_valid_size:
             self.x_pos = root.winfo_x()
