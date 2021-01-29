@@ -4,9 +4,11 @@ import win32print
 # importing win32ui causes a BUG - can't exit the program
 import win32ui
 import win32con
+import global_vars as gv
 
 
-def print_canvas(root, canvas, scale=20):
+def print_canvas(root, canvas, entry_width, entry_height, scale=20):
+    top_gap = 0
     coord_list = [(canvas.type(obj), canvas.coords(obj)) for obj in canvas.find_all()]
     '''Print canvas from list of coords for each canvas.object'''
     moves = []
@@ -23,8 +25,8 @@ def print_canvas(root, canvas, scale=20):
 
         elif obj[0] == 'line':
             # moves.append(('line@: ', obj[1]))
-            moves.append('dc.MoveTo((scale*%d, scale*-%d))' % (int(obj[1][0]), int(obj[1][1])))
-            moves.append('dc.LineTo((scale*%d, scale*-%d))' % (int(obj[1][2]), int(obj[1][3])))
+            moves.append('dc.MoveTo((scale*%d, scale*-%d))' % (int(obj[1][0]), int(obj[1][1])+top_gap))
+            moves.append('dc.LineTo((scale*%d, scale*-%d))' % (int(obj[1][2]), int(obj[1][3])+top_gap))
 
         elif obj[0] == 'polygon':
             # moves.append(('polygon@: ', obj[1]))
@@ -52,6 +54,12 @@ def print_canvas(root, canvas, scale=20):
     choice = PrinterChooser(root).show()
     if choice is not None:
         printer = choice.get('printer')
+        width = int(entry_width.get())
+        height = int(entry_height.get())
+        if 'hp' in printer.lower():
+            if width > gv.MAX_WIDTH_TO_PRINT_ON_A4 or height > gv.MAX_HEIGHT_TO_PRINT_ON_A4:
+                print('Width x Height exceeds A4 size')
+                return
     else:
         return
     try:
@@ -71,7 +79,7 @@ def print_canvas(root, canvas, scale=20):
 class PrinterChooser(object):
     def __init__(self, parent):
         self.window = tk.Toplevel(parent)
-        self.window.title(' Choose')
+        self.window.title('')
         width = 210
         height = 150
         x = parent.winfo_x() + 25
@@ -106,7 +114,7 @@ class PrinterChooser(object):
         self.frame_3 = tk.Frame(self.window)
         self.frame_3.pack(side=tk.BOTTOM, fill=tk.BOTH, ipady=0)
 
-        self.label_printer = tk.Label(self.frame_2, width=5, text='Printer', padx=7)
+        self.label_printer = tk.Label(self.frame_2, text='Choose Printer', padx=7)
         self.label_printer.grid(row=0, column=2)
 
         self.printer_choice_menu = ttk.Combobox(self.frame_2, width=29, values=printers)

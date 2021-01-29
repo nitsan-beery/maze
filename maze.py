@@ -69,7 +69,10 @@ class Maze:
         self.sub_mazes = []
 
     def set_maze(self):
-        free_cells = self.get_sub_maze((0, 0))
+        free_cells = []
+        for row in range(self.height):
+            for col in range(self.width):
+                free_cells.append((row, col))
         self.fill_maze_with_trails(free_cells)
         self.trail = self.solve_maze()
         self.h_lines[self.height][self.end_col].open()
@@ -417,7 +420,7 @@ class Maze:
         board.pack(expand=tk.YES, fill=tk.BOTH)
 
         button_show_trail = tk.Button(frame_2, text="Show trail", command=lambda: self.toggle_trail(window, board, button_show_trail))
-        button_print_maze = tk.Button(frame_2, text="Print maze", command=lambda: print_canvas(window, board))
+        button_print_maze = tk.Button(frame_2, text="Print maze", command=lambda: print_canvas(window, board, entry_width, entry_height))
         button_save = tk.Button(frame_2, text="Save maze", command=lambda: self.save_maze(window))
         button_load = tk.Button(frame_2, text='Load maze', command=lambda: self.load_maze(window))
 
@@ -451,8 +454,8 @@ class Maze:
         window.focus_force()
         entry_width.selection_range(0, tk.END)
         entry_width.focus_set()
-        x = button_new.winfo_x() + frame_3.winfo_x() + 45
-        y = button_new.winfo_y() + frame_3.winfo_y() + 45
+        x = button_show_trail.winfo_x() + frame_2.winfo_x() + 45
+        y = button_show_trail.winfo_y() + frame_2.winfo_y() + 45
         win32api.SetCursorPos((self.x_pos + x, self.y_pos + y))
 
         x_00 = gv.X_00
@@ -582,7 +585,7 @@ class Maze:
         except ValueError:
             is_valid_size = False
         if is_valid_size:
-            if not gv.MIN_SIZE <= width <= gv.MAX_SIZE or not gv.MIN_SIZE <= height <= gv.MAX_SIZE:
+            if width < gv.MIN_SIZE or height < gv.MIN_SIZE or (width * height) > gv.MAX_SIZE ** 2:
                 is_valid_size = False
         if is_valid_size:
             self.x_pos = root.winfo_x()
