@@ -12,7 +12,7 @@ min_win_width = 305
 
 DEBUG_MODE = False
 
-MAX_STRAIT_LINE = max(2, int(MAZE_WIDTH/4))
+MAX_STRAIT_LINE = max(1, int(MAZE_WIDTH/8))
 
 LINE_SIZE = 15
 WALL_LINE_COLOR = 'black'

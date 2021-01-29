@@ -72,9 +72,11 @@ class PrinterChooser(object):
     def __init__(self, parent):
         self.window = tk.Toplevel(parent)
         self.window.title(' Choose')
-        width = 220
+        width = 210
         height = 150
-        self.window.geometry(f'{width}x{height}')
+        x = parent.winfo_x() + 25
+        y = parent.winfo_y() + 40
+        self.window.geometry(f'{width}x{height}+{x}+{y}')
         self.window.resizable(0, 0)
 
         p_list = win32print.EnumPrinters(2)
@@ -107,7 +109,7 @@ class PrinterChooser(object):
         self.label_printer = tk.Label(self.frame_2, width=5, text='Printer', padx=7)
         self.label_printer.grid(row=0, column=2)
 
-        self.printer_choice_menu = ttk.Combobox(self.frame_2, width=25, values=printers)
+        self.printer_choice_menu = ttk.Combobox(self.frame_2, width=29, values=printers)
         self.printer_choice_menu.grid(row=1, column=2, padx=5, pady=5)
 
         button_ok = tk.Button(self.frame_3, text="OK", width=5, command=self.get_choice)
