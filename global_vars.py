@@ -1,6 +1,6 @@
 
-MAZE_WIDTH = 21            # number of columns
-MAZE_HEIGHT = MAZE_WIDTH    # number of rows
+MAZE_WIDTH = 23
+MAZE_HEIGHT = MAZE_WIDTH
 
 win_x_pos = 0.5
 win_y_pos = 0.3
@@ -10,8 +10,6 @@ min_win_width = 305
 DEBUG_MODE = False
 
 MAX_STRAIT_LINE = max(2, int(MAZE_WIDTH/4))
-MIN_ROWS_TO_SPLIT_POLYGON = 3
-MAX_POLYGON_PERCENTAGE_AREA = 1 #0.25
 
 LINE_SIZE = 15
 WALL_LINE_COLOR = 'black'

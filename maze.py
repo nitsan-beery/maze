@@ -25,13 +25,12 @@ class Line:
 
 
 class Cell:
-    def __init__(self, can_go_up=True, can_go_down=True, can_go_left=True, can_go_right=True, is_free=True, show_cell=False):
+    def __init__(self, can_go_up=True, can_go_down=True, can_go_left=True, can_go_right=True, is_free=True):
         self.can_go_up = can_go_up
         self.can_go_down = can_go_down
         self.can_go_left = can_go_left
         self.can_go_right = can_go_right
         self.is_free = is_free
-        self.show_cell = show_cell
 
 
 class Maze:
@@ -65,16 +64,15 @@ class Maze:
         self.marked_cells = []
         self.sub_mazes = []
 
-    def set_maze(self, solve=True):
-        sm = self.get_sub_maze((0, 0))
-        self.fill_sub_maze_with_trails(sm)
+    def set_maze(self):
+        free_cells = self.get_sub_maze((0, 0))
+        self.fill_maze_with_trails(free_cells)
+        self.trail = self.solve_maze()
         self.h_lines[self.height][self.end_col].open()
-        if solve:
-            self.solve_maze()
 
-    def fill_sub_maze_with_trails(self, sm):
+    def fill_maze_with_trails(self, free_cells):
         self.set_trail((0, self.start_col))
-        row, col = self.get_next_empty_cell_in_sub_maze(sm)
+        row, col = self.get_next_empty_cell_in_sub_maze(free_cells)
         while row is not None:
             new_sm = self.get_sub_maze((row, col))
             tw = self.get_sub_maze_inner_border(new_sm)
@@ -82,7 +80,7 @@ class Maze:
             self.open_trail_wall(tw[i])
             cell = self.get_entrance_cell_to_sub_maze(new_sm)
             self.set_trail(cell)
-            row, col = self.get_next_empty_cell_in_sub_maze(sm)
+            row, col = self.get_next_empty_cell_in_sub_maze(free_cells)
 
     # return list of TrailWalls = inner border of the sub maze (one and only one of them should be opened)
     def get_sub_maze_inner_border(self, sm):
@@ -154,6 +152,10 @@ class Maze:
             for col in range(self.width):
                 c = Cell()
                 c.is_free = cells[row][col].is_free
+                c.can_go_right = cells[row][col].can_go_right
+                c.can_go_left = cells[row][col].can_go_left
+                c.can_go_up = cells[row][col].can_go_up
+                c.can_go_down = cells[row][col].can_go_down
                 cs_row.append(c)
             cs.append(cs_row)
         return cs
@@ -311,7 +313,55 @@ class Maze:
         return row - i
 
     def solve_maze(self):
-        pass
+        # prepare maze cells according to walls
+        for row in range(self.height):
+            for col in range(self.width):
+                c = Cell()
+                if not self.v_lines[col][row].is_open():
+                    c.can_go_left = False
+                if not self.v_lines[col+1][row].is_open():
+                    c.can_go_right = False
+                if not self.h_lines[row][col].is_open():
+                    c.can_go_up = False
+                if not self.h_lines[row+1][col].is_open():
+                    c.can_go_down = False
+                self.cells[row][col] = c
+        self.cells[0][self.start_col].can_go_up = False
+        return self.find_trail((0, self.start_col), self.cells)
+
+    def find_trail(self, cell, cells):
+        trail = [cell]
+        if cell == (self.height-1, self.end_col):
+            return trail
+        row = cell[0]
+        col = cell[1]
+        cell = cells[row][col]
+        tmp_cells = self.copy_cells(cells)
+        if cell.can_go_left:
+            tmp_cells[row][col-1].can_go_right = False
+            tmp_trail = self.find_trail((row, col-1), tmp_cells)
+            if tmp_trail is not None:
+                trail += tmp_trail
+                return trail
+        if cell.can_go_right:
+            tmp_cells[row][col+1].can_go_left = False
+            tmp_trail = self.find_trail((row, col+1), tmp_cells)
+            if tmp_trail is not None:
+                trail += tmp_trail
+                return trail
+        if cell.can_go_down:
+            tmp_cells[row+1][col].can_go_up = False
+            tmp_trail = self.find_trail((row+1, col), tmp_cells)
+            if tmp_trail is not None:
+                trail += tmp_trail
+                return trail
+        if cell.can_go_up:
+            tmp_cells[row-1][col].can_go_down = False
+            tmp_trail = self.find_trail((row-1, col), tmp_cells)
+            if tmp_trail is not None:
+                trail += tmp_trail
+                return trail
+        return None
 
     def reset_state(self):
         # set all lines to default = closed, no part of the trail
@@ -344,7 +394,7 @@ class Maze:
 
         return h_lines, v_lines, cells
 
-    def show_maze(self, show_marked_cells=False, pause=0):
+    def show_maze(self, show_trail=False, pause=0):
         window = tk.Tk()
         window.title('Maze')
         window.geometry(f'{self.board_width}x{self.board_height+80}+{self.x_pos}+{self.y_pos}')
@@ -426,8 +476,8 @@ class Maze:
         x += gv.LINE_SIZE
         board.create_line(x, start_y, x, end_y, fill=gv.WALL_LINE_COLOR)
         # trail
-        if show_marked_cells:
-            self.get_and_show_marked_cells(window, board)
+        if show_trail:
+            self.show_trail(window, board)
 
         window.update()
         window.mainloop()
@@ -441,8 +491,6 @@ class Maze:
         self.end_col = json_data.get("end_col")
         self.h_lines, self.v_lines, self.cells = self.reset_state()
         self.trail = json_data.get("trail")
-        for cell in self.trail:
-            self.cells[cell[0]][cell[1]].show_cell = True
 
         h_lines = json_data.get("h_lines")
         v_lines = json_data.get("v_lines")
@@ -538,7 +586,7 @@ class Maze:
             board.delete(c)
         window.update()
 
-    def get_and_show_marked_cells(self, window, board):
+    def show_trail(self, window, board):
         x_00 = gv.X_00
         y_00 = gv.Y_00
         self.marked_cells = []
@@ -550,17 +598,19 @@ class Maze:
         top_y = y_00 - gv.LINE_SIZE
         bottom_y = top_y + gv.LINE_SIZE / 3
         self.marked_cells.append(board.create_oval(top_x, top_y, bottom_x, bottom_y, fill=gv.SHOW_CELL_COLOR, outline=gv.SHOW_CELL_COLOR))
-        for row in range(self.height):
-            for col in range(self.width):
-                if self.cells[row][col].show_cell:
-                    top_x = x_00 + gv.LINE_SIZE*col
-                    bottom_x = top_x + gv.LINE_SIZE/3
-                    top_y = y_00 + gv.LINE_SIZE*row
-                    bottom_y = top_y + gv.LINE_SIZE/3
-                    self.marked_cells.append(board.create_oval(top_x, top_y, bottom_x, bottom_y, fill=gv.SHOW_CELL_COLOR, outline=gv.SHOW_CELL_COLOR))
+
+        for cell in self.trail:
+            row = cell[0]
+            col = cell[1]
+            top_x = x_00 + gv.LINE_SIZE * col
+            bottom_x = top_x + gv.LINE_SIZE / 3
+            top_y = y_00 + gv.LINE_SIZE * row
+            bottom_y = top_y + gv.LINE_SIZE / 3
+            self.marked_cells.append(board.create_oval(top_x, top_y, bottom_x, bottom_y, fill=gv.SHOW_CELL_COLOR, outline=gv.SHOW_CELL_COLOR))
+
         top_x = x_00 + gv.LINE_SIZE * self.end_col
         bottom_x = top_x + gv.LINE_SIZE / 3
-        top_y = y_00 + (row+1)*gv.LINE_SIZE
+        top_y = y_00 + self.height*gv.LINE_SIZE
         bottom_y = top_y + gv.LINE_SIZE / 3
         self.marked_cells.append(board.create_oval(top_x, top_y, bottom_x, bottom_y, fill=gv.SHOW_CELL_COLOR, outline=gv.SHOW_CELL_COLOR))
         window.update()
@@ -575,7 +625,7 @@ class Maze:
 
     def toggle_trail(self, window, board, button_show_trail):
         if self.toggle(button_show_trail) == 'on':
-            self.get_and_show_marked_cells(window, board)
+            self.show_trail(window, board)
         else:
             self.delete_marked_cells(window, board)
         window.update()
