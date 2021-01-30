@@ -419,7 +419,7 @@ class Maze:
         board = tk.Canvas(frame_1, width=self.board_width, height=self.board_height)
         board.pack(expand=tk.YES, fill=tk.BOTH)
 
-        button_show_trail = tk.Button(frame_2, text="Show trail", command=lambda: self.toggle_trail(window, board, button_show_trail))
+        button_show_trail = tk.Button(frame_2, text="Show trail", command=lambda: self.toggle_trail(window, board, button_show_trail, label_trail_len))
         button_print_maze = tk.Button(frame_2, text="Print maze", command=lambda: print_canvas(window, board, entry_width, entry_height))
         button_save = tk.Button(frame_2, text="Save maze", command=lambda: self.save_maze(window))
         button_load = tk.Button(frame_2, text='Load maze', command=lambda: self.load_maze(window))
@@ -433,11 +433,13 @@ class Maze:
         label_x = tk.Label(frame_3, text='x', padx=1)
         entry_height = tk.Entry(frame_3, width=4, justify=tk.CENTER)
         button_new = tk.Button(frame_3, text='New maze', command=lambda: self.select_new_maze(window, entry_width, entry_height))
+        label_trail_len = tk.Label(frame_3, text='', fg=gv.TEXT_COLOR)
 
         button_new.pack(side=tk.LEFT, padx=5)
         entry_width.pack(side=tk.LEFT, padx=5)
         label_x.pack(side=tk.LEFT)
         entry_height.pack(side=tk.LEFT, padx=5)
+        label_trail_len.pack(side=tk.LEFT, padx=5)
 
         entry_width.delete(0, tk.END)
         entry_width.insert(0, self.width)
@@ -655,11 +657,13 @@ class Maze:
             b.config(relief="sunken")
             return 'on'
 
-    def toggle_trail(self, window, board, button_show_trail):
+    def toggle_trail(self, window, board, button_show_trail, label_trail):
         if self.toggle(button_show_trail) == 'on':
             self.show_trail(window, board)
+            label_trail.config(text=f'trail length: {len(self.trail)}')
         else:
             self.delete_marked_cells(window, board)
+            label_trail.config(text='')
         window.update()
 
     #debug

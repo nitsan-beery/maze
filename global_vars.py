@@ -17,6 +17,7 @@ MAX_STRAIT_LINE = max(1, MAZE_WIDTH // 4)
 LINE_SIZE = 15
 WALL_LINE_COLOR = 'black'
 SHOW_CELL_COLOR = 'green'
+TEXT_COLOR = 'blue'
 
 h_gap = 15
 v_gap = 10
