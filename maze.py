@@ -1,6 +1,5 @@
 from tkinter import filedialog
 import json
-import global_vars as gv
 from print_canvas import *
 import random
 import win32api
@@ -74,7 +73,6 @@ class Maze:
             for col in range(self.width):
                 free_cells.append((row, col))
         self.fill_maze_with_trails(free_cells)
-        self.trail = self.solve_maze()
         self.h_lines[self.height][self.end_col].open()
 
     def fill_maze_with_trails(self, free_cells):
@@ -225,7 +223,8 @@ class Maze:
         trail.append((row2, col2))
         return trail
 
-    # return next cell in trail and direction towards it
+    # return next cell in trail and direction towards it. side = preferred side
+    # random length between 1 - gv.MAX_STRAIT_LINE
     def choose_next_cell(self, current_cell, side):
         row = current_cell[0]
         col = current_cell[1]
@@ -618,7 +617,12 @@ class Maze:
             board.delete(c)
         window.update()
 
-    def show_trail(self, window, board):
+    def show_trail(self, window, board, label_trail):
+        if len(self.trail) == 0:
+            label_trail.config(text='Please wait...')
+            window.update()
+            self.trail = self.solve_maze()
+
         x_00 = gv.X_00
         y_00 = gv.Y_00
         self.marked_cells = []
@@ -647,6 +651,8 @@ class Maze:
         top_y = y_00 + self.height*gv.LINE_SIZE
         bottom_y = top_y + gv.LINE_SIZE / scale_factor
         self.marked_cells.append(board.create_rectangle(top_x, top_y, bottom_x, bottom_y, fill=gv.SHOW_CELL_COLOR, outline=gv.SHOW_CELL_COLOR))
+
+        label_trail.config(text=f'Trail length: {len(self.trail)}')
         window.update()
 
     def toggle(self, b):
@@ -659,8 +665,7 @@ class Maze:
 
     def toggle_trail(self, window, board, button_show_trail, label_trail):
         if self.toggle(button_show_trail) == 'on':
-            self.show_trail(window, board)
-            label_trail.config(text=f'trail length: {len(self.trail)}')
+            self.show_trail(window, board, label_trail)
         else:
             self.delete_marked_cells(window, board)
             label_trail.config(text='')
