@@ -1,5 +1,5 @@
 
-MAZE_WIDTH = 35
+MAZE_WIDTH = 5
 MAZE_HEIGHT = MAZE_WIDTH
 
 MAX_SIZE = 50
@@ -12,7 +12,7 @@ min_win_width = 305
 
 DEBUG_MODE = False
 
-MAX_STRAIT_LINE = max(1, MAZE_WIDTH // 8)
+MAX_STRAIT_LINE = max(1, MAZE_WIDTH // 4)
 
 LINE_SIZE = 15
 WALL_LINE_COLOR = 'black'

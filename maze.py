@@ -620,29 +620,31 @@ class Maze:
         x_00 = gv.X_00
         y_00 = gv.Y_00
         self.marked_cells = []
+        scale_factor = 4
 
-        x_00 += gv.LINE_SIZE/3
-        y_00 += gv.LINE_SIZE/3
+        x_00 += gv.LINE_SIZE * (scale_factor-1) / (2 * scale_factor)
+        y_00 += gv.LINE_SIZE * (scale_factor-1) / (2 * scale_factor)
         top_x = x_00 + gv.LINE_SIZE * self.start_col
-        bottom_x = top_x + gv.LINE_SIZE / 3
+        bottom_x = top_x + gv.LINE_SIZE / scale_factor
         top_y = y_00 - gv.LINE_SIZE
-        bottom_y = top_y + gv.LINE_SIZE / 3
-        self.marked_cells.append(board.create_oval(top_x, top_y, bottom_x, bottom_y, fill=gv.SHOW_CELL_COLOR, outline=gv.SHOW_CELL_COLOR))
+        bottom_y = top_y + gv.LINE_SIZE / scale_factor
+        self.marked_cells.append(board.create_rectangle(top_x, top_y, bottom_x, bottom_y, fill=gv.SHOW_CELL_COLOR, outline=gv.SHOW_CELL_COLOR))
 
         for cell in self.trail:
             row = cell[0]
             col = cell[1]
             top_x = x_00 + gv.LINE_SIZE * col
-            bottom_x = top_x + gv.LINE_SIZE / 3
+            bottom_x = top_x + gv.LINE_SIZE / scale_factor
             top_y = y_00 + gv.LINE_SIZE * row
-            bottom_y = top_y + gv.LINE_SIZE / 3
-            self.marked_cells.append(board.create_oval(top_x, top_y, bottom_x, bottom_y, fill=gv.SHOW_CELL_COLOR, outline=gv.SHOW_CELL_COLOR))
+            bottom_y = top_y + gv.LINE_SIZE / scale_factor
+            self.marked_cells.append(board.create_rectangle(top_x, top_y, bottom_x, bottom_y, fill=gv.SHOW_CELL_COLOR,
+                                                            outline=gv.SHOW_CELL_COLOR))
 
         top_x = x_00 + gv.LINE_SIZE * self.end_col
-        bottom_x = top_x + gv.LINE_SIZE / 3
+        bottom_x = top_x + gv.LINE_SIZE / scale_factor
         top_y = y_00 + self.height*gv.LINE_SIZE
-        bottom_y = top_y + gv.LINE_SIZE / 3
-        self.marked_cells.append(board.create_oval(top_x, top_y, bottom_x, bottom_y, fill=gv.SHOW_CELL_COLOR, outline=gv.SHOW_CELL_COLOR))
+        bottom_y = top_y + gv.LINE_SIZE / scale_factor
+        self.marked_cells.append(board.create_rectangle(top_x, top_y, bottom_x, bottom_y, fill=gv.SHOW_CELL_COLOR, outline=gv.SHOW_CELL_COLOR))
         window.update()
 
     def toggle(self, b):
