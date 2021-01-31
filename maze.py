@@ -48,7 +48,6 @@ class Maze:
         self.right_trail_wall = []
         self.trail = []
         self.marked_cells = []
-        self.sub_mazes = []
 
     def set_board_geometry(self):
         self.board_width = max(gv.LINE_SIZE * (self.width+2) + 2 * gv.h_gap, gv.min_win_width)
@@ -65,7 +64,6 @@ class Maze:
         self.right_trail_wall = []
         self.trail = []
         self.marked_cells = []
-        self.sub_mazes = []
 
     def set_maze(self):
         free_cells = []
@@ -84,7 +82,7 @@ class Maze:
             new_sm = self.get_sub_maze((row, col))
             tw = self.choose_tw_to_open(new_sm)
             self.open_trail_wall(tw)
-            cell = self.get_entrance_cell_to_sub_maze(new_sm)
+            cell = self.get_entrance_cell_to_sub_maze(tw)
             trail = self.set_trail(cell)
             free_cells = [cell for cell in free_cells if cell not in trail]
 
@@ -124,17 +122,21 @@ class Maze:
             h_border = h_border_down
         return h_border, v_border
 
-    def get_entrance_cell_to_sub_maze(self, sm):
-        for cell in sm:
-            row = cell[0]
-            col = cell[1]
-            right_wall = self.v_lines[col][row]
-            left_wall = self.v_lines[col+1][row]
-            ceiling = self.h_lines[row][col]
-            floor = self.h_lines[row+1][col]
-            if left_wall.is_open() or right_wall.is_open() or ceiling.is_open() or floor.is_open():
-                return cell
-        return None
+    def get_entrance_cell_to_sub_maze(self, tw):
+        if tw.is_vertical:
+            row = tw.y
+            col = tw.x
+            if self.cells[row][col-1].is_free:
+                return row, col-1
+            else:
+                return row, col
+        else:
+            row = tw.x
+            col = tw.y
+            if self.cells[row-1][col].is_free:
+                return row-1, col
+            else:
+                return row, col
 
     def open_trail_wall(self, tw):
         if tw.is_vertical:
