@@ -82,36 +82,47 @@ class Maze:
             row = free_cells[0][0]
             col = free_cells[0][1]
             new_sm = self.get_sub_maze((row, col))
-            tw = self.get_sub_maze_inner_border(new_sm)
-            i = random.randint(0, len(tw) - 1)
-            self.open_trail_wall(tw[i])
+            tw = self.choose_tw_to_open(new_sm)
+            self.open_trail_wall(tw)
             cell = self.get_entrance_cell_to_sub_maze(new_sm)
             trail = self.set_trail(cell)
             free_cells = [cell for cell in free_cells if cell not in trail]
 
+    def choose_tw_to_open(self, sm):
+        h_tw, v_tw = self.get_sub_maze_inner_border(sm)
+        tw_list = v_tw + h_tw
+        i = random.randint(0, len(tw_list) - 1)
+        return tw_list[i]
+
     # return list of TrailWalls = inner border of the sub maze (one and only one of them should be opened)
     def get_sub_maze_inner_border(self, sm):
-        inner_border = []
+        v_border = []
+        h_border_up = []
+        h_border_down = []
         for cell in sm:
             row = cell[0]
             col = cell[1]
             # upper wall
             if row > 0 and not self.cells[row-1][col].is_free:
                 tw = TrailWall(is_vertical=False, x=row, y=col)
-                inner_border.append(tw)
+                h_border_up.append(tw)
             # lower wall
             if row < self.height - 1 and not self.cells[row+1][col].is_free:
                 tw = TrailWall(is_vertical=False, x=row+1, y=col)
-                inner_border.append(tw)
+                h_border_down.append(tw)
             # left wall
             if col > 0 and not self.cells[row][col-1].is_free:
                 tw = TrailWall(is_vertical=True, x=col, y=row)
-                inner_border.append(tw)
+                v_border.append(tw)
             # right wall
             if col < self.width-1 and not self.cells[row][col+1].is_free:
                 tw = TrailWall(is_vertical=True, x=col+1, y=row)
-                inner_border.append(tw)
-        return inner_border
+                v_border.append(tw)
+        if len(h_border_up) > 0:
+            h_border = h_border_up
+        else:
+            h_border = h_border_down
+        return h_border, v_border
 
     def get_entrance_cell_to_sub_maze(self, sm):
         for cell in sm:
@@ -436,9 +447,9 @@ class Maze:
 
         button_new.pack(side=tk.LEFT, padx=5)
         entry_width.pack(side=tk.LEFT, padx=5)
-        label_x.pack(side=tk.LEFT)
+        label_x.pack(side=tk.LEFT, padx=5)
         entry_height.pack(side=tk.LEFT, padx=5)
-        label_trail_len.pack(side=tk.LEFT, padx=5)
+        label_trail_len.pack(side=tk.LEFT, padx=15)
 
         entry_width.delete(0, tk.END)
         entry_width.insert(0, self.width)
