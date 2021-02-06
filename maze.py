@@ -87,40 +87,34 @@ class Maze:
             free_cells = [cell for cell in free_cells if cell not in trail]
 
     def choose_tw_to_open(self, sm):
-        h_tw, v_tw = self.get_sub_maze_inner_border(sm)
-        tw_list = v_tw + h_tw
+        tw_list = self.get_sub_maze_inner_border(sm)
         i = random.randint(0, len(tw_list) - 1)
         return tw_list[i]
 
     # return list of TrailWalls = inner border of the sub maze (one and only one of them should be opened)
     def get_sub_maze_inner_border(self, sm):
-        v_border = []
-        h_border_up = []
-        h_border_down = []
+        border = []
         for cell in sm:
             row = cell[0]
             col = cell[1]
             # upper wall
             if row > 0 and not self.cells[row-1][col].is_free:
                 tw = TrailWall(is_vertical=False, x=row, y=col)
-                h_border_up.append(tw)
+                border.append(tw)
             # lower wall
             if row < self.height - 1 and not self.cells[row+1][col].is_free:
                 tw = TrailWall(is_vertical=False, x=row+1, y=col)
-                h_border_down.append(tw)
+                border.append(tw)
             # left wall
             if col > 0 and not self.cells[row][col-1].is_free:
                 tw = TrailWall(is_vertical=True, x=col, y=row)
-                v_border.append(tw)
+                border.append(tw)
             # right wall
             if col < self.width-1 and not self.cells[row][col+1].is_free:
                 tw = TrailWall(is_vertical=True, x=col+1, y=row)
-                v_border.append(tw)
-        if len(h_border_up) > 0:
-            h_border = h_border_up
-        else:
-            h_border = h_border_down
-        return h_border, v_border
+                border.append(tw)
+
+        return border
 
     def get_entrance_cell_to_sub_maze(self, tw):
         if tw.is_vertical:
@@ -413,7 +407,7 @@ class Maze:
             cells.append(current_row)
 
         # open upper entrance
-        h_lines[0][self.start_col].is_wall = False
+        h_lines[0][self.start_col].open()
 
         return h_lines, v_lines, cells
 
@@ -515,9 +509,10 @@ class Maze:
         board.create_line(x, start_y, x, end_y, fill=gv.WALL_LINE_COLOR)
         # trail
         if show_trail:
-            self.show_trail(window, board)
+            self.show_trail(window, board, label_trail_len)
 
         window.update()
+        self.trail = self.solve_maze()
         window.mainloop()
 
     def board_key(self, key):
@@ -535,7 +530,6 @@ class Maze:
         self.end_col = json_data.get("end_col")
         self.h_lines, self.v_lines, self.cells = self.reset_state()
         self.trail = json_data.get("trail")
-
         h_lines = json_data.get("h_lines")
         v_lines = json_data.get("v_lines")
 
@@ -543,7 +537,6 @@ class Maze:
             for col in range(self.width):
                 line = h_lines[row][col]
                 self.h_lines[row][col].is_wall = line
-
         for col in range(self.width+1):
             for row in range(self.height):
                 line = v_lines[col][row]
@@ -558,14 +551,12 @@ class Maze:
                 line = self.h_lines[row][col]
                 strip.append(not line.is_open())
             h_lines.append(strip)
-
         for col in range(self.width+1):
             strip = []
             for row in range(self.height):
                 line = self.v_lines[col][row]
                 strip.append(not line.is_open())
             v_lines.append(strip)
-
         md = {
             "width": self.width,
             "height": self.height,
@@ -575,7 +566,6 @@ class Maze:
             "v_lines": v_lines,
             "trail": self.trail
         }
-
         return md
 
     def save_maze(self, root):
